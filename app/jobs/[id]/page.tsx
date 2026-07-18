@@ -2,7 +2,8 @@
 
 import { use, useState } from "react";
 import { useRouter } from "next/navigation";
-import { mockJobs } from "@/lib/mockData";
+import { mockJobs, mockBusinessProfile } from "@/lib/mockData";
+import { calculateTax, formatTaxLabel, PST_PROVINCES } from "@/lib/taxEngine";
 
 type Tab = "Design" | "BOM" | "Quote";
 
@@ -24,7 +25,6 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
   const [laborRate, setLaborRate] = useState(job?.laborRate ?? 95);
   const [laborHours, setLaborHours] = useState(job?.laborHours ?? 2);
   const [margin, setMargin] = useState(job?.margin ?? 25);
-  const [tax, setTax] = useState(job?.tax ?? 12);
 
   if (!job) return (
     <div style={{ padding: "60px", textAlign: "center", color: "var(--text-muted)" }}>
@@ -48,8 +48,12 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
   const materialsWithMargin = materialsCost * (1 + margin / 100);
   const labour = laborRate * laborHours;
   const subtotal = materialsWithMargin + labour;
-  const taxAmt = subtotal * (tax / 100);
-  const grandTotal = subtotal + taxAmt;
+
+  // Tax engine
+  const { province, pstRegistered } = mockBusinessProfile;
+  const taxResult = calculateTax(province, materialsWithMargin, labour);
+  const showPstWarning = PST_PROVINCES.includes(province) && !pstRegistered;
+  const grandTotal = subtotal + taxResult.totalTax;
 
   const StatusIcon = () => {
     if (job.status === "Draft") return <span style={{ width: "10px", height: "10px", borderRadius: "50%", border: "1.5px dashed var(--text-muted)", display: "inline-block" }} />;
@@ -335,22 +339,30 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
                 </div>
               </div>
 
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "13px 20px", borderBottom: "1px solid var(--border-light)" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "13px 20px", borderBottom: "1px solid var(--border)" }}>
                 <span style={{ fontSize: "14px", color: "var(--text-secondary)" }}>Subtotal</span>
                 <span style={{ fontSize: "14px", minWidth: "110px", textAlign: "right", fontFamily: "var(--font-mono)", color: "var(--text)" }}>${subtotal.toFixed(2)} CAD</span>
               </div>
 
-              {/* Tax */}
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "13px 20px", borderBottom: "1px solid var(--border)" }}>
-                <span style={{ fontSize: "14px", color: "var(--text-secondary)" }}>Tax</span>
-                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                  <div style={{ display: "flex", alignItems: "center", border: "1px solid var(--border)", borderRadius: "6px", overflow: "hidden" }}>
-                    <span style={prefixStyle}>%</span>
-                    <input type="number" value={tax} onChange={e => setTax(+e.target.value)} style={{ ...inputStyle, width: "55px", padding: "5px 8px", border: "none", borderRadius: 0 }} />
-                  </div>
-                  <span style={{ fontSize: "14px", minWidth: "110px", textAlign: "right", fontFamily: "var(--font-mono)", color: "var(--text)" }}>${taxAmt.toFixed(2)} CAD</span>
+              {/* PST registration warning */}
+              {showPstWarning && (
+                <div style={{ margin: "0", padding: "10px 20px", background: "rgba(242,106,27,0.08)", borderBottom: "1px solid rgba(242,106,27,0.2)", display: "flex", gap: "10px", alignItems: "flex-start" }}>
+                  <span style={{ fontSize: "15px", flexShrink: 0 }}>⚠️</span>
+                  <span style={{ fontSize: "12.5px", color: "var(--text-secondary)", lineHeight: 1.5 }}>
+                    You may need to register for PST before collecting it from customers.
+                  </span>
                 </div>
-              </div>
+              )}
+
+              {/* Tax lines from engine */}
+              {taxResult.lines.map((line, i) => (
+                <div key={line.name} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "11px 20px", borderBottom: i < taxResult.lines.length - 1 ? "1px solid var(--border-light)" : "1px solid var(--border)" }}>
+                  <div>
+                    <span style={{ fontSize: "13.5px", color: "var(--text-secondary)" }}>{formatTaxLabel(line)}</span>
+                  </div>
+                  <span style={{ fontSize: "13.5px", minWidth: "110px", textAlign: "right", fontFamily: "var(--font-mono)", color: "var(--text)" }}>${line.amount.toFixed(2)} CAD</span>
+                </div>
+              ))}
 
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", background: "rgba(242,106,27,0.06)", borderTop: "1px solid rgba(242,106,27,0.2)" }}>
                 <span style={{ fontFamily: "var(--font-bebas)", fontSize: "20px", letterSpacing: "0.06em", color: "var(--text)", fontWeight: 700 }}>Grand Total</span>

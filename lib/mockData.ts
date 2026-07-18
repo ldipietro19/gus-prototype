@@ -113,6 +113,20 @@ export const mockJobs: Job[] = [
   { id: "8", jobId: "KP-06-24-26-01", status: "Won", customer: "Patrick DiPietro", jobType: "Appliance Hookup", hasParts: true, hasQuote: true, value: 351, closedAt: "Jun 24, 8:09 AM", createdAt: "Jun 24" },
 ];
 
+export type BusinessProfile = {
+  province: import("./taxEngine").Province;
+  pstRegistered: boolean;
+  companyName: string;
+  gstNumber: string;
+};
+
+export const mockBusinessProfile: BusinessProfile = {
+  province: "BC",
+  pstRegistered: true,
+  companyName: "LC Plumbing Co",
+  gstNumber: "715748331RT0001",
+};
+
 export const mockCustomers = [
   { id: "1", name: "Lindsay DiPietro", type: "Personal", email: "lindsaydipietro@icloud.com", phone: "778-873-2977", address: "19681 75 Ave", lastEdited: "Jun 24, 7:55 AM" },
   { id: "2", name: "Patrick DiPietro", type: "Personal", email: "patrick@example.com", phone: "778-555-0192", address: "19681 75 Ave", lastEdited: "Jun 24, 8:00 AM" },
