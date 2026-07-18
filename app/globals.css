@@ -1,36 +1,63 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
+:root {
+  --font-bebas: 'Bebas Neue', sans-serif;
+  --font-sans: 'DM Sans', -apple-system, sans-serif;
+  --font-mono: 'DM Mono', monospace;
+
+  --orange: #F26A1B;
+  --orange-light: rgba(242, 106, 27, 0.15);
+  --orange-border: rgba(242, 106, 27, 0.35);
+  --teal: #1ABFBF;
+  --bg: #142236;
+  --bg-page: #0D1B2E;
+  --bg-deep: #060e1a;
+  --sidebar-bg: #060e1a;
+  --border: rgba(255, 255, 255, 0.07);
+  --border-light: rgba(255, 255, 255, 0.04);
+  --text: #F0F6FF;
+  --text-secondary: #B0CFE0;
+  --text-muted: #3D6480;
+  --green: #10b981;
+  --green-bg: rgba(16, 185, 129, 0.15);
+  --red: #ef4444;
+  --blue: #3b82f6;
+  --blue-bg: rgba(59, 130, 246, 0.15);
+}
+
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
-  background: #f5f5f5;
-  color: #111827;
+  font-family: var(--font-sans);
+  background-color: var(--bg-page);
+  background-image:
+    linear-gradient(rgba(26, 191, 191, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(26, 191, 191, 0.025) 1px, transparent 1px);
+  background-size: 40px 40px;
+  color: var(--text);
   height: 100vh;
   overflow: hidden;
 }
 
-:root {
-  --orange: #F26A1B;
-  --orange-light: #fff4ed;
-  --orange-border: #fed7aa;
-  --bg: #ffffff;
-  --bg-page: #f5f5f5;
-  --sidebar-bg: #ffffff;
-  --border: #e5e7eb;
-  --border-light: #f3f4f6;
-  --text: #111827;
-  --text-secondary: #6b7280;
-  --text-muted: #9ca3af;
-  --green: #10b981;
-  --green-bg: #d1fae5;
-  --red: #ef4444;
-  --blue: #3b82f6;
-  --blue-bg: #dbeafe;
+/* Grain texture overlay */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 9999;
 }
 
 a { text-decoration: none; color: inherit; }
 button { font-family: inherit; }
-input, textarea, select { font-family: inherit; }
 
+/* Dark defaults for form elements */
+input, textarea, select {
+  font-family: inherit;
+  background: var(--bg);
+  color: var(--text);
+}
+
+/* Scrollbar */
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
+::-webkit-scrollbar-thumb { background: #3D6480; border-radius: 3px; }

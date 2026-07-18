@@ -5,13 +5,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { mockJobs } from "@/lib/mockData";
 
-const STATUS_DOT: Record<string, string> = {
-  Draft: "border: 1.5px solid #9ca3af; background: transparent;",
-  Sent: "background: #3b82f6;",
-  Won: "background: #10b981;",
-  Lost: "background: #9ca3af;",
-};
-
 const NAV = [
   {
     href: "/jobs", label: "Jobs",
@@ -37,16 +30,72 @@ export default function Sidebar() {
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
 
   return (
-    <aside style={{ width: collapsed ? "52px" : "230px", minWidth: collapsed ? "52px" : "230px", background: "var(--sidebar-bg)", borderRight: "1px solid var(--border)", display: "flex", flexDirection: "column", transition: "width 0.18s ease, min-width 0.18s ease", overflow: "hidden", height: "100vh" }}>
+    <aside style={{
+      width: collapsed ? "52px" : "230px",
+      minWidth: collapsed ? "52px" : "230px",
+      background: "var(--sidebar-bg)",
+      borderRight: "1px solid var(--border)",
+      display: "flex",
+      flexDirection: "column",
+      transition: "width 0.18s ease, min-width 0.18s ease",
+      overflow: "hidden",
+      height: "100vh",
+    }}>
 
-      {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: collapsed ? "center" : "space-between", padding: collapsed ? "14px 0" : "14px 14px", borderBottom: "1px solid var(--border)", minHeight: "52px" }}>
-        {!collapsed && <span style={{ fontSize: "15px", fontWeight: 700, letterSpacing: "-0.02em" }}>GUS</span>}
+      {/* Header / Logo */}
+      <div style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: collapsed ? "center" : "space-between",
+        padding: collapsed ? "12px 0" : "12px 14px",
+        borderBottom: "1px solid var(--border)",
+        minHeight: "52px",
+      }}>
+        {!collapsed && (
+          <span style={{
+            fontFamily: "var(--font-bebas)",
+            fontSize: "28px",
+            letterSpacing: "0.06em",
+            color: "var(--orange)",
+            lineHeight: 1,
+          }}>GUS</span>
+        )}
+        {collapsed && (
+          <span style={{
+            fontFamily: "var(--font-bebas)",
+            fontSize: "20px",
+            letterSpacing: "0.06em",
+            color: "var(--orange)",
+            lineHeight: 1,
+          }}>G</span>
+        )}
         <div style={{ display: "flex", gap: "4px" }}>
-          <button onClick={() => setCollapsed(!collapsed)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", padding: "3px 5px", borderRadius: "4px", fontSize: "13px", fontWeight: 500 }}>
+          <button
+            onClick={() => setCollapsed(!collapsed)}
+            style={{
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              color: "var(--text-muted)",
+              padding: "3px 5px",
+              borderRadius: "4px",
+              fontSize: "13px",
+              fontWeight: 500,
+            }}>
             {collapsed ? "»" : "«"}
           </button>
-          {!collapsed && <button style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", padding: "3px 5px", borderRadius: "4px", fontSize: "17px", lineHeight: 1 }}>+</button>}
+          {!collapsed && (
+            <button style={{
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              color: "var(--text-muted)",
+              padding: "3px 5px",
+              borderRadius: "4px",
+              fontSize: "17px",
+              lineHeight: 1,
+            }}>+</button>
+          )}
         </div>
       </div>
 
@@ -56,11 +105,29 @@ export default function Sidebar() {
           {NAV.map(item => {
             const active = isActive(item.href);
             return (
-              <Link key={item.href} href={item.href}
-                style={{ display: "flex", alignItems: "center", gap: "9px", padding: collapsed ? "9px 0" : "7px 10px", justifyContent: collapsed ? "center" : "flex-start", borderRadius: "7px", marginBottom: "1px", fontSize: "13px", fontWeight: active ? 600 : 400, color: active ? "var(--text)" : "var(--text-secondary)", background: active ? "#f3f4f6" : "transparent", textDecoration: "none", transition: "background 0.1s" }}
-                onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = "#f9fafb"; }}
+              <Link
+                key={item.href}
+                href={item.href}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "9px",
+                  padding: collapsed ? "9px 0" : "7px 10px",
+                  justifyContent: collapsed ? "center" : "flex-start",
+                  borderRadius: "7px",
+                  marginBottom: "1px",
+                  fontSize: "13px",
+                  fontWeight: active ? 600 : 400,
+                  color: active ? "var(--orange)" : "var(--text-secondary)",
+                  background: active ? "rgba(242, 106, 27, 0.1)" : "transparent",
+                  textDecoration: "none",
+                  transition: "background 0.1s",
+                  borderLeft: active && !collapsed ? "2px solid var(--orange)" : "2px solid transparent",
+                  paddingLeft: active && !collapsed ? "8px" : "10px",
+                }}
+                onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.04)"; }}
                 onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
-                <span style={{ flexShrink: 0, opacity: active ? 1 : 0.6 }}>{item.icon}</span>
+                <span style={{ flexShrink: 0, opacity: active ? 1 : 0.5, color: active ? "var(--orange)" : "var(--text-secondary)" }}>{item.icon}</span>
                 {!collapsed && <span>{item.label}</span>}
               </Link>
             );
@@ -70,27 +137,76 @@ export default function Sidebar() {
         {/* Recent Jobs */}
         {!collapsed && (
           <div style={{ padding: "4px 6px" }}>
-            <p style={{ fontSize: "10px", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", padding: "6px 10px 5px" }}>Recent Jobs</p>
+            <p style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: "9px",
+              fontWeight: 500,
+              color: "var(--teal)",
+              textTransform: "uppercase",
+              letterSpacing: "0.2em",
+              padding: "6px 10px 5px",
+            }}>// Recent Jobs</p>
             {mockJobs.slice(0, 8).map(job => (
-              <Link key={job.id} href={`/jobs/${job.id}`}
-                style={{ display: "flex", alignItems: "center", gap: "8px", padding: "5px 10px", borderRadius: "6px", fontSize: "12px", color: "var(--text-secondary)", textDecoration: "none" }}
-                onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = "#f9fafb"}
+              <Link
+                key={job.id}
+                href={`/jobs/${job.id}`}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  padding: "5px 10px",
+                  borderRadius: "6px",
+                  fontSize: "12px",
+                  color: "var(--text-muted)",
+                  textDecoration: "none",
+                }}
+                onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.04)"}
                 onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = "transparent"}>
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, opacity: 0.4 }}><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
-                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
+                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, color: "var(--text-secondary)" }}>
                   {job.customer ?? job.jobId}
                 </span>
-                <span style={{ width: "8px", height: "8px", borderRadius: "50%", flexShrink: 0, ...(job.status === "Draft" ? { border: "1.5px solid #9ca3af" } : { background: job.status === "Won" ? "#10b981" : job.status === "Sent" ? "#3b82f6" : "#9ca3af" }) }} />
+                <span style={{
+                  width: "7px",
+                  height: "7px",
+                  borderRadius: "50%",
+                  flexShrink: 0,
+                  ...(job.status === "Draft"
+                    ? { border: "1.5px solid var(--text-muted)" }
+                    : { background: job.status === "Won" ? "#10b981" : job.status === "Sent" ? "#3b82f6" : "#9ca3af" })
+                }} />
               </Link>
             ))}
           </div>
         )}
       </div>
 
-      {/* Company */}
+      {/* Company footer */}
       {!collapsed && (
-        <div style={{ padding: "10px 16px", borderTop: "1px solid var(--border)", fontSize: "12px", color: "var(--text-muted)", display: "flex", alignItems: "center", gap: "8px" }}>
-          <span style={{ width: "22px", height: "22px", borderRadius: "50%", background: "#f3f4f6", border: "1px solid var(--border)", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: "10px", fontWeight: 700, color: "var(--text-secondary)" }}>L</span>
+        <div style={{
+          padding: "10px 16px",
+          borderTop: "1px solid var(--border)",
+          fontSize: "12px",
+          color: "var(--text-muted)",
+          display: "flex",
+          alignItems: "center",
+          gap: "8px",
+          fontFamily: "var(--font-mono)",
+          letterSpacing: "0.04em",
+        }}>
+          <span style={{
+            width: "22px",
+            height: "22px",
+            borderRadius: "50%",
+            background: "rgba(242,106,27,0.15)",
+            border: "1px solid rgba(242,106,27,0.3)",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: "10px",
+            fontWeight: 700,
+            color: "var(--orange)",
+          }}>L</span>
           LC Plumbing Co
         </div>
       )}
