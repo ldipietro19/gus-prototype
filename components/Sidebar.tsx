@@ -181,35 +181,43 @@ export default function Sidebar() {
         )}
       </div>
 
-      {/* Company footer */}
-      {!collapsed && (
-        <div style={{
-          padding: "10px 16px",
+      {/* Company footer → Settings */}
+      <Link
+        href="/settings"
+        style={{
+          padding: collapsed ? "10px 0" : "10px 16px",
           borderTop: "1px solid var(--border)",
           fontSize: "12px",
-          color: "var(--text-muted)",
+          color: isActive("/settings") ? "var(--orange)" : "var(--text-muted)",
+          background: isActive("/settings") ? "rgba(242,106,27,0.08)" : "transparent",
           display: "flex",
           alignItems: "center",
+          justifyContent: collapsed ? "center" : "flex-start",
           gap: "8px",
           fontFamily: "var(--font-mono)",
           letterSpacing: "0.04em",
-        }}>
-          <span style={{
-            width: "22px",
-            height: "22px",
-            borderRadius: "50%",
-            background: "rgba(242,106,27,0.15)",
-            border: "1px solid rgba(242,106,27,0.3)",
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: "10px",
-            fontWeight: 700,
-            color: "var(--orange)",
-          }}>L</span>
-          LC Plumbing Co
-        </div>
-      )}
+          textDecoration: "none",
+          flexShrink: 0,
+          transition: "background 0.1s, color 0.1s",
+        }}
+        onMouseEnter={e => { if (!isActive("/settings")) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.04)"; }}
+        onMouseLeave={e => { if (!isActive("/settings")) (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
+        <span style={{
+          width: "22px",
+          height: "22px",
+          borderRadius: "50%",
+          background: isActive("/settings") ? "rgba(242,106,27,0.25)" : "rgba(242,106,27,0.15)",
+          border: `1px solid ${isActive("/settings") ? "rgba(242,106,27,0.5)" : "rgba(242,106,27,0.3)"}`,
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontSize: "10px",
+          fontWeight: 700,
+          color: "var(--orange)",
+          flexShrink: 0,
+        }}>L</span>
+        {!collapsed && <span>LC Plumbing Co</span>}
+      </Link>
     </aside>
   );
 }
