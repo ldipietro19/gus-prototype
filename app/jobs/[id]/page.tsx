@@ -32,8 +32,20 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
 
   useEffect(() => {
     setShareOrigin(window.location.origin);
-    const stored = JSON.parse(localStorage.getItem("gus_responses") || "{}");
-    if (job?.id && stored[job.id]) setCustomerResponse(stored[job.id]);
+
+    const checkResponse = () => {
+      const stored = JSON.parse(localStorage.getItem("gus_responses") || "{}");
+      if (job?.id && stored[job.id]) setCustomerResponse(stored[job.id]);
+    };
+
+    checkResponse(); // on mount
+    window.addEventListener("storage", checkResponse);       // other tab changes
+    document.addEventListener("visibilitychange", checkResponse); // switching back to this tab
+
+    return () => {
+      window.removeEventListener("storage", checkResponse);
+      document.removeEventListener("visibilitychange", checkResponse);
+    };
   }, [job?.id]);
 
   if (!job) return (
