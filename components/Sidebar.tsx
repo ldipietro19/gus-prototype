@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { mockJobs } from "@/lib/mockData";
@@ -24,25 +24,93 @@ const NAV = [
   },
 ];
 
+const STATUS_DOT: Record<string, React.CSSProperties> = {
+  Draft:  { border: "1.5px solid #3D6480" },
+  Sent:   { background: "#3b82f6" },
+  Won:    { background: "#10b981" },
+  Lost:   { background: "#ef4444" },
+};
+
+const BUCKETS = [
+  { key: "active", label: "Active",  statuses: ["Draft", "Sent"],  color: "#3b82f6" },
+  { key: "won",    label: "Won",     statuses: ["Won"],             color: "#10b981" },
+  { key: "lost",   label: "Lost",    statuses: ["Lost"],            color: "#ef4444" },
+];
+const CAP = 4;
+const MIN_WIDTH = 52;
+const MAX_WIDTH = 340;
+const SNAP_COLLAPSED = 100; // below this → icon-only
+
 export default function Sidebar() {
+  const [width, setWidth] = useState(230);
   const [collapsed, setCollapsed] = useState(false);
+  const [openBuckets, setOpenBuckets] = useState<Record<string, boolean>>({ active: true, won: false, lost: false });
   const pathname = usePathname();
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
 
+  const dragging = useRef(false);
+  const startX = useRef(0);
+  const startWidth = useRef(0);
+
+  const onDragStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    dragging.current = true;
+    startX.current = e.clientX;
+    startWidth.current = width;
+
+    const onMove = (ev: MouseEvent) => {
+      if (!dragging.current) return;
+      const next = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, startWidth.current + (ev.clientX - startX.current)));
+      setWidth(next);
+      setCollapsed(next < SNAP_COLLAPSED);
+    };
+    const onUp = () => {
+      dragging.current = false;
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+  }, [width]);
+
+  // keep collapsed in sync if user resizes wider again
+  useEffect(() => {
+    if (width >= SNAP_COLLAPSED && collapsed && width > SNAP_COLLAPSED) {
+      // only auto-expand if drag pushed it past threshold
+    }
+  }, [width, collapsed]);
+
+  const toggleCollapse = () => {
+    if (collapsed) {
+      setWidth(230);
+      setCollapsed(false);
+    } else {
+      setWidth(MIN_WIDTH);
+      setCollapsed(true);
+    }
+  };
+
+  const toggleBucket = (key: string) =>
+    setOpenBuckets(b => ({ ...b, [key]: !b[key] }));
+
   return (
     <aside style={{
-      width: collapsed ? "52px" : "230px",
-      minWidth: collapsed ? "52px" : "230px",
+      width: `${width}px`,
+      minWidth: `${width}px`,
       background: "var(--sidebar-bg)",
       borderRight: "1px solid var(--border)",
       display: "flex",
       flexDirection: "column",
-      transition: "width 0.18s ease, min-width 0.18s ease",
-      overflow: "hidden",
+      position: "relative",
       height: "100vh",
+      overflow: "hidden",
     }}>
 
-      {/* Header / Logo */}
+      {/* ── Header ── */}
       <div style={{
         display: "flex",
         alignItems: "center",
@@ -50,81 +118,43 @@ export default function Sidebar() {
         padding: collapsed ? "12px 0" : "12px 14px",
         borderBottom: "1px solid var(--border)",
         minHeight: "52px",
+        flexShrink: 0,
       }}>
-        {!collapsed && (
-          <span style={{
-            fontFamily: "var(--font-bebas)",
-            fontSize: "28px",
-            letterSpacing: "0.06em",
-            color: "var(--orange)",
-            lineHeight: 1,
-          }}>GUS</span>
-        )}
-        {collapsed && (
-          <span style={{
-            fontFamily: "var(--font-bebas)",
-            fontSize: "20px",
-            letterSpacing: "0.06em",
-            color: "var(--orange)",
-            lineHeight: 1,
-          }}>G</span>
+        {collapsed ? (
+          <span style={{ fontFamily: "var(--font-bebas)", fontSize: "20px", letterSpacing: "0.06em", color: "var(--orange)", lineHeight: 1 }}>G</span>
+        ) : (
+          <span style={{ fontFamily: "var(--font-bebas)", fontSize: "28px", letterSpacing: "0.06em", color: "var(--orange)", lineHeight: 1 }}>GUS</span>
         )}
         <div style={{ display: "flex", gap: "4px" }}>
-          <button
-            onClick={() => setCollapsed(!collapsed)}
-            style={{
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              color: "var(--text-muted)",
-              padding: "3px 5px",
-              borderRadius: "4px",
-              fontSize: "13px",
-              fontWeight: 500,
-            }}>
+          <button onClick={toggleCollapse} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", padding: "3px 5px", borderRadius: "4px", fontSize: "13px", fontWeight: 500 }}>
             {collapsed ? "»" : "«"}
           </button>
           {!collapsed && (
-            <button style={{
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              color: "var(--text-muted)",
-              padding: "3px 5px",
-              borderRadius: "4px",
-              fontSize: "17px",
-              lineHeight: 1,
-            }}>+</button>
+            <button style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", padding: "3px 5px", borderRadius: "4px", fontSize: "17px", lineHeight: 1 }}>+</button>
           )}
         </div>
       </div>
 
+      {/* ── Scrollable body ── */}
       <div style={{ flex: 1, overflowY: "auto" }}>
-        {/* Nav */}
+
+        {/* Main nav */}
         <nav style={{ padding: "8px 6px" }}>
           {NAV.map(item => {
             const active = isActive(item.href);
             return (
-              <Link
-                key={item.href}
-                href={item.href}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "9px",
-                  padding: collapsed ? "9px 0" : "7px 10px",
-                  justifyContent: collapsed ? "center" : "flex-start",
-                  borderRadius: "7px",
-                  marginBottom: "1px",
-                  fontSize: "13px",
-                  fontWeight: active ? 600 : 400,
-                  color: active ? "var(--orange)" : "var(--text-secondary)",
-                  background: active ? "rgba(242, 106, 27, 0.1)" : "transparent",
-                  textDecoration: "none",
-                  transition: "background 0.1s",
-                  borderLeft: active && !collapsed ? "2px solid var(--orange)" : "2px solid transparent",
-                  paddingLeft: active && !collapsed ? "8px" : "10px",
-                }}
+              <Link key={item.href} href={item.href} style={{
+                display: "flex", alignItems: "center", gap: "9px",
+                padding: collapsed ? "9px 0" : "7px 10px",
+                justifyContent: collapsed ? "center" : "flex-start",
+                borderRadius: "7px", marginBottom: "1px",
+                fontSize: "13px", fontWeight: active ? 600 : 400,
+                color: active ? "var(--orange)" : "var(--text-secondary)",
+                background: active ? "rgba(242,106,27,0.1)" : "transparent",
+                textDecoration: "none", transition: "background 0.1s",
+                borderLeft: active && !collapsed ? "2px solid var(--orange)" : "2px solid transparent",
+                paddingLeft: active && !collapsed ? "8px" : "10px",
+              }}
                 onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.04)"; }}
                 onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
                 <span style={{ flexShrink: 0, opacity: active ? 1 : 0.5, color: active ? "var(--orange)" : "var(--text-secondary)" }}>{item.icon}</span>
@@ -134,90 +164,132 @@ export default function Sidebar() {
           })}
         </nav>
 
-        {/* Recent Jobs */}
+        {/* ── Job buckets ── */}
         {!collapsed && (
-          <div style={{ padding: "4px 6px" }}>
+          <div style={{ padding: "4px 6px 8px" }}>
             <p style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: "9px",
-              fontWeight: 500,
-              color: "var(--teal)",
-              textTransform: "uppercase",
-              letterSpacing: "0.2em",
+              fontFamily: "var(--font-mono)", fontSize: "9px", fontWeight: 500,
+              color: "var(--teal)", textTransform: "uppercase", letterSpacing: "0.2em",
               padding: "6px 10px 5px",
-            }}>// Recent Jobs</p>
-            {mockJobs.slice(0, 8).map(job => (
-              <Link
-                key={job.id}
-                href={`/jobs/${job.id}`}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  padding: "5px 10px",
-                  borderRadius: "6px",
-                  fontSize: "12px",
-                  color: "var(--text-muted)",
-                  textDecoration: "none",
-                }}
-                onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.04)"}
-                onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = "transparent"}>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, opacity: 0.4 }}><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
-                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, color: "var(--text-secondary)" }}>
-                  {job.customer ?? job.jobId}
-                </span>
-                <span style={{
-                  width: "7px",
-                  height: "7px",
-                  borderRadius: "50%",
-                  flexShrink: 0,
-                  ...(job.status === "Draft"
-                    ? { border: "1.5px solid var(--text-muted)" }
-                    : { background: job.status === "Won" ? "#10b981" : job.status === "Sent" ? "#3b82f6" : "#9ca3af" })
-                }} />
-              </Link>
-            ))}
+            }}>// Jobs</p>
+
+            {BUCKETS.map(bucket => {
+              const jobs = mockJobs.filter(j => bucket.statuses.includes(j.status ?? ""));
+              const visible = openBuckets[bucket.key] ? jobs.slice(0, CAP) : [];
+              const overflow = jobs.length > CAP;
+
+              return (
+                <div key={bucket.key} style={{ marginBottom: "2px" }}>
+                  {/* Bucket header */}
+                  <button
+                    onClick={() => toggleBucket(bucket.key)}
+                    style={{
+                      display: "flex", alignItems: "center", gap: "7px",
+                      width: "100%", padding: "5px 10px", borderRadius: "6px",
+                      background: "none", border: "none", cursor: "pointer",
+                      textAlign: "left",
+                    }}
+                    onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.04)"}
+                    onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = "none"}>
+                    <span style={{
+                      width: "6px", height: "6px", borderRadius: "50%",
+                      background: bucket.color, flexShrink: 0,
+                    }} />
+                    <span style={{ flex: 1, fontSize: "12px", fontWeight: 500, color: "var(--text-secondary)" }}>
+                      {bucket.label}
+                    </span>
+                    <span style={{ fontSize: "10px", fontFamily: "var(--font-mono)", color: "var(--text-muted)", marginRight: "4px" }}>
+                      {jobs.length}
+                    </span>
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                      style={{ color: "var(--text-muted)", transform: openBuckets[bucket.key] ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.15s", flexShrink: 0 }}>
+                      <polyline points="9 18 15 12 9 6" />
+                    </svg>
+                  </button>
+
+                  {/* Job rows */}
+                  {openBuckets[bucket.key] && (
+                    <div style={{ paddingLeft: "8px" }}>
+                      {jobs.length === 0 && (
+                        <div style={{ fontSize: "11.5px", color: "var(--text-muted)", padding: "4px 10px 6px", fontFamily: "var(--font-mono)" }}>No {bucket.label.toLowerCase()} jobs</div>
+                      )}
+                      {visible.map(job => (
+                        <Link key={job.id} href={`/jobs/${job.id}`} style={{
+                          display: "flex", alignItems: "center", gap: "8px",
+                          padding: "4px 10px", borderRadius: "5px",
+                          fontSize: "12px", color: "var(--text-secondary)",
+                          textDecoration: "none",
+                        }}
+                          onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.04)"}
+                          onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = "transparent"}>
+                          <span style={{
+                            width: "6px", height: "6px", borderRadius: "50%", flexShrink: 0,
+                            ...STATUS_DOT[job.status ?? "Draft"],
+                          }} />
+                          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
+                            {job.customer ?? job.jobId}
+                          </span>
+                        </Link>
+                      ))}
+                      {overflow && (
+                        <Link href="/jobs" style={{
+                          display: "block", padding: "3px 10px",
+                          fontSize: "11px", color: "var(--teal)",
+                          textDecoration: "none", fontFamily: "var(--font-mono)",
+                          letterSpacing: "0.04em",
+                        }}
+                          onMouseEnter={e => (e.currentTarget as HTMLElement).style.opacity = "0.7"}
+                          onMouseLeave={e => (e.currentTarget as HTMLElement).style.opacity = "1"}>
+                          View all {jobs.length} →
+                        </Link>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
 
-      {/* Company footer → Settings */}
-      <Link
-        href="/settings"
-        style={{
-          padding: collapsed ? "10px 0" : "10px 16px",
-          borderTop: "1px solid var(--border)",
-          fontSize: "12px",
-          color: isActive("/settings") ? "var(--orange)" : "var(--text-muted)",
-          background: isActive("/settings") ? "rgba(242,106,27,0.08)" : "transparent",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: collapsed ? "center" : "flex-start",
-          gap: "8px",
-          fontFamily: "var(--font-mono)",
-          letterSpacing: "0.04em",
-          textDecoration: "none",
-          flexShrink: 0,
-          transition: "background 0.1s, color 0.1s",
-        }}
+      {/* ── Company footer → Settings ── */}
+      <Link href="/settings" style={{
+        padding: collapsed ? "10px 0" : "10px 16px",
+        borderTop: "1px solid var(--border)",
+        fontSize: "12px",
+        color: isActive("/settings") ? "var(--orange)" : "var(--text-muted)",
+        background: isActive("/settings") ? "rgba(242,106,27,0.08)" : "transparent",
+        display: "flex", alignItems: "center",
+        justifyContent: collapsed ? "center" : "flex-start",
+        gap: "8px",
+        fontFamily: "var(--font-mono)", letterSpacing: "0.04em",
+        textDecoration: "none", flexShrink: 0,
+        transition: "background 0.1s, color 0.1s",
+      }}
         onMouseEnter={e => { if (!isActive("/settings")) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.04)"; }}
         onMouseLeave={e => { if (!isActive("/settings")) (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
         <span style={{
-          width: "22px",
-          height: "22px",
-          borderRadius: "50%",
+          width: "22px", height: "22px", borderRadius: "50%", flexShrink: 0,
           background: isActive("/settings") ? "rgba(242,106,27,0.25)" : "rgba(242,106,27,0.15)",
           border: `1px solid ${isActive("/settings") ? "rgba(242,106,27,0.5)" : "rgba(242,106,27,0.3)"}`,
-          display: "inline-flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontSize: "10px",
-          fontWeight: 700,
-          color: "var(--orange)",
-          flexShrink: 0,
+          display: "inline-flex", alignItems: "center", justifyContent: "center",
+          fontSize: "10px", fontWeight: 700, color: "var(--orange)",
         }}>L</span>
         {!collapsed && <span>LC Plumbing Co</span>}
       </Link>
+
+      {/* ── Drag handle ── */}
+      <div
+        onMouseDown={onDragStart}
+        style={{
+          position: "absolute", top: 0, right: 0,
+          width: "5px", height: "100%",
+          cursor: "col-resize",
+          zIndex: 10,
+        }}
+        onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = "rgba(242,106,27,0.25)"}
+        onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = "transparent"}
+      />
     </aside>
   );
 }
