@@ -45,8 +45,33 @@ export default function Sidebar() {
   const [width, setWidth] = useState(230);
   const [collapsed, setCollapsed] = useState(false);
   const [openBuckets, setOpenBuckets] = useState<Record<string, boolean>>({ active: true, won: false, lost: false });
+  const [responses, setResponses] = useState<Record<string, string>>({});
   const pathname = usePathname();
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
+
+  // Sync with localStorage responses (cross-tab + same-tab)
+  useEffect(() => {
+    const load = () => {
+      const r = JSON.parse(localStorage.getItem("gus_responses") || "{}");
+      setResponses(r);
+      // Auto-open Won/Lost buckets if any job moved there
+      if (Object.values(r).includes("accepted")) setOpenBuckets(b => ({ ...b, won: true }));
+      if (Object.values(r).includes("declined")) setOpenBuckets(b => ({ ...b, lost: true }));
+    };
+    load();
+    window.addEventListener("storage", load);
+    document.addEventListener("visibilitychange", load);
+    return () => {
+      window.removeEventListener("storage", load);
+      document.removeEventListener("visibilitychange", load);
+    };
+  }, []);
+
+  const effectiveStatus = (job: typeof mockJobs[0]) => {
+    if (responses[job.id] === "accepted") return "Won";
+    if (responses[job.id] === "declined") return "Lost";
+    return job.status ?? "Draft";
+  };
 
   // Hide sidebar on public customer-facing pages
   if (pathname.startsWith("/q/")) return null;
@@ -177,7 +202,7 @@ export default function Sidebar() {
             }}>// Jobs</p>
 
             {BUCKETS.map(bucket => {
-              const jobs = mockJobs.filter(j => bucket.statuses.includes(j.status ?? ""));
+              const jobs = mockJobs.filter(j => bucket.statuses.includes(effectiveStatus(j)));
               const visible = openBuckets[bucket.key] ? jobs.slice(0, CAP) : [];
               const overflow = jobs.length > CAP;
 
@@ -227,7 +252,7 @@ export default function Sidebar() {
                           onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = "transparent"}>
                           <span style={{
                             width: "6px", height: "6px", borderRadius: "50%", flexShrink: 0,
-                            ...STATUS_DOT[job.status ?? "Draft"],
+                            ...STATUS_DOT[effectiveStatus(job)],
                           }} />
                           <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
                             {job.customer ?? job.jobId}
