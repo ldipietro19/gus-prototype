@@ -1,7 +1,8 @@
 "use client";
 import { useState } from "react";
+import { calculateTax, formatTaxLabel, Province, PST_PROVINCES, PROVINCE_NAMES } from "@/lib/taxEngine";
+import { mockBusinessProfile } from "@/lib/mockData";
 
-type Phase = "beta" | "ga" | "shop";
 type Tab =
   | "general" | "business" | "appearance"
   | "rates" | "defaults" | "tax" | "delivery" | "terms"
@@ -92,7 +93,6 @@ function LockedPanel({ icon, title, sub }: { icon: string; title: string; sub: s
 
 // ── Main component ────────────────────────────────────────────────────────────
 export default function SettingsPage() {
-  const [phase, setPhase] = useState<Phase>("beta");
   const [tab, setTab] = useState<Tab>("business");
   const [theme, setTheme] = useState<"light" | "dark" | "system">("dark");
   const [toggles, setToggles] = useState<Record<string, boolean>>({
@@ -102,7 +102,11 @@ export default function SettingsPage() {
   });
   const tog = (key: string) => setToggles(t => ({ ...t, [key]: !t[key] }));
 
-  const NAV: { group: string; items: { id: Tab; label: string; icon: string; badge?: string; badgeType?: "teal" | "orange" }[] }[] = [
+  // Tax engine state — mirrors what would be saved in business profile
+  const [province, setProvince] = useState<Province>(mockBusinessProfile.province);
+  const [pstRegistered, setPstRegistered] = useState(mockBusinessProfile.pstRegistered);
+
+  const NAV: { group: string; items: { id: Tab; label: string; icon: string }[] }[] = [
     { group: "Settings", items: [
       { id: "general", label: "General", icon: "ti ti-settings" },
       { id: "business", label: "Business profile", icon: "ti ti-building" },
@@ -118,38 +122,24 @@ export default function SettingsPage() {
     { group: "Notifications", items: [
       { id: "notifications", label: "Notifications", icon: "ti ti-bell" },
     ]},
-    ...( phase !== "beta" ? [{ group: "Integrations", items: [
-      { id: "connectors" as Tab, label: "Connectors", icon: "ti ti-plug", badge: "GA", badgeType: "orange" as const },
-    ]}] : []),
-    ...( phase === "shop" ? [{ group: "Members & access", items: [
-      { id: "people" as Tab, label: "People", icon: "ti ti-users", badge: "Shop", badgeType: "teal" as const },
-      { id: "groups" as Tab, label: "Groups", icon: "ti ti-users-group", badge: "Shop", badgeType: "teal" as const },
-      { id: "roles" as Tab, label: "Roles & permissions", icon: "ti ti-shield-check", badge: "Shop", badgeType: "teal" as const },
-    ]}] : []),
+    { group: "Integrations", items: [
+      { id: "connectors", label: "Connectors", icon: "ti ti-plug" },
+    ]},
+    { group: "Members & access", items: [
+      { id: "people", label: "People", icon: "ti ti-users" },
+      { id: "groups", label: "Groups", icon: "ti ti-users-group" },
+      { id: "roles", label: "Roles & permissions", icon: "ti ti-shield-check" },
+    ]},
     { group: "Account", items: [
       { id: "billing", label: "Plan & billing", icon: "ti ti-credit-card" },
     ]},
   ];
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh", flexDirection: "column" }}>
+    <div style={{ display: "flex", minHeight: "100vh" }}>
 
-      {/* Phase switcher */}
-      <div style={{ background: "var(--bg-deep)", borderBottom: "1px solid rgba(26,191,191,0.15)", display: "flex", alignItems: "center", gap: "20px", padding: "0 24px", height: "44px", flexShrink: 0 }}>
-        <span style={{ fontFamily: "var(--font-mono)", fontSize: "9px", letterSpacing: "0.2em", textTransform: "uppercase", color: "var(--teal)", whiteSpace: "nowrap" }}>// prototype view</span>
-        <div style={{ display: "flex", flex: 1 }}>
-          {(["beta", "ga", "shop"] as Phase[]).map(p => (
-            <button key={p} onClick={() => setPhase(p)} style={{ fontFamily: "var(--font-mono)", fontSize: "11px", letterSpacing: "0.08em", textTransform: "uppercase", color: phase === p ? "var(--orange)" : "var(--text-muted)", padding: "0 18px", height: "44px", display: "flex", alignItems: "center", background: "none", border: "none", cursor: "pointer", borderBottom: `2px solid ${phase === p ? "var(--orange)" : "transparent"}`, transition: "color 0.15s" }}>
-              {p === "beta" ? "Beta · Pilot" : p === "ga" ? "GA · Solo" : "GA · Shop"}
-            </button>
-          ))}
-        </div>
-        <span style={{ fontFamily: "var(--font-mono)", fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--text-muted)", whiteSpace: "nowrap" }}>settings evolve by phase</span>
-      </div>
-
-      <div style={{ display: "flex", flex: 1 }}>
-        {/* Sidebar */}
-        <aside style={{ width: "224px", flexShrink: 0, padding: "28px 12px", borderRight: "1px solid var(--border)", background: "var(--sidebar-bg)", alignSelf: "flex-start", height: "calc(100vh - 44px)", overflowY: "auto", position: "sticky", top: 0 }}>
+      {/* Sidebar */}
+      <aside style={{ width: "224px", flexShrink: 0, padding: "28px 12px", borderRight: "1px solid var(--border)", background: "var(--sidebar-bg)", alignSelf: "flex-start", height: "100vh", overflowY: "auto", position: "sticky", top: 0 }}>
           {NAV.map(group => (
             <div key={group.group} style={{ marginBottom: "24px" }}>
               <span style={{ fontFamily: "var(--font-mono)", fontSize: "10px", letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--text-muted)", padding: "0 12px", marginBottom: "4px", display: "block" }}>{group.group}</span>
@@ -160,9 +150,6 @@ export default function SettingsPage() {
                   onMouseLeave={e => { if (tab !== item.id) (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
                   <i className={item.icon} style={{ fontSize: "16px", flexShrink: 0 }} />
                   <span style={{ flex: 1 }}>{item.label}</span>
-                  {item.badge && (
-                    <span style={{ fontSize: "9px", fontFamily: "var(--font-mono)", letterSpacing: "0.06em", textTransform: "uppercase", background: item.badgeType === "teal" ? "rgba(26,191,191,0.1)" : "rgba(242,106,27,0.1)", color: item.badgeType === "teal" ? "var(--teal)" : "var(--orange)", border: `1px solid ${item.badgeType === "teal" ? "rgba(26,191,191,0.22)" : "rgba(242,106,27,0.22)"}`, borderRadius: "4px", padding: "1px 6px" }}>{item.badge}</span>
-                  )}
                 </button>
               ))}
             </div>
@@ -393,49 +380,98 @@ export default function SettingsPage() {
           )}
 
           {/* ── TAX ── */}
-          {tab === "tax" && (
-            <div>
-              <h1 style={{ fontSize: "20px", fontWeight: 500, color: "var(--text)", marginBottom: "6px" }}>Tax</h1>
-              <p style={{ fontSize: "13px", color: "var(--text-muted)", marginBottom: "28px", lineHeight: 1.6 }}>Controls how GST and PST are applied across all estimates.</p>
-              <div style={sec}>
-                <SectionTitle>Setup</SectionTitle>
-                <div style={row2}>
-                  <Field label="Province">
-                    <select style={sel}>
-                      <option>British Columbia</option><option>Alberta</option><option>Ontario</option><option>Manitoba</option>
-                      <option>Saskatchewan</option><option>Quebec</option><option>Nova Scotia</option><option>New Brunswick</option>
-                      <option>PEI</option><option>Newfoundland & Labrador</option><option>NWT / Nunavut / Yukon</option>
-                    </select>
-                  </Field>
-                  <Field label="PST treatment">
-                    <select style={sel}>
-                      <option>Not PST registered</option>
-                      <option selected>PST embedded in material cost</option>
-                      <option>PST registered — charge customers</option>
-                    </select>
-                  </Field>
+          {tab === "tax" && (() => {
+            // Sample estimate for live preview (matches job #1 mock data)
+            const sampleMaterials = 619.00; // materials w/ 25% margin
+            const sampleLabour   = 190.00; // $95/hr × 2hrs
+            const taxPreview = calculateTax(province, sampleMaterials, sampleLabour);
+            const needsPst = PST_PROVINCES.includes(province);
+            return (
+              <div>
+                <h1 style={{ fontSize: "20px", fontWeight: 500, color: "var(--text)", marginBottom: "6px" }}>Tax</h1>
+                <p style={{ fontSize: "13px", color: "var(--text-muted)", marginBottom: "28px", lineHeight: 1.6 }}>
+                  Province is set once and drives how tax is calculated on every estimate. Change province to see the rules update live.
+                </p>
+
+                <div style={sec}>
+                  <SectionTitle>Province</SectionTitle>
+                  <div style={row2}>
+                    <Field label="Province you operate in">
+                      <select value={province} onChange={e => setProvince(e.target.value as Province)} style={sel}>
+                        {(Object.entries(PROVINCE_NAMES) as [Province, string][]).map(([code, name]) => (
+                          <option key={code} value={code}>{name}</option>
+                        ))}
+                      </select>
+                    </Field>
+                    <Field label="GST number">
+                      <input type="text" defaultValue="715748331RT0001" style={inp} />
+                    </Field>
+                  </div>
                 </div>
-              </div>
-              <div style={sec}>
-                <SectionTitle>How this applies to estimates</SectionTitle>
-                <div style={{ background: "var(--bg-page)", border: "1px solid var(--border)", borderRadius: "10px", padding: "14px 16px" }}>
-                  <div style={{ fontSize: "10px", fontFamily: "var(--font-mono)", letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--text-muted)", marginBottom: "10px" }}>// Applied to every estimate</div>
-                  {[
-                    { label: "GST", rate: "5%", applies: "Labour + materials" },
-                    { label: "PST", rate: "Embedded", applies: "Included in your material cost" },
-                    { label: "Customer sees", rate: "GST only", applies: "One tax line on estimate" },
-                  ].map((row, i, arr) => (
-                    <div key={row.label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 0", fontSize: "13px", borderBottom: i < arr.length - 1 ? "1px solid var(--border)" : "none" }}>
-                      <span style={{ color: "var(--text-secondary)" }}>{row.label}</span>
-                      <span style={{ fontFamily: "var(--font-mono)", fontWeight: 500, color: "var(--text)" }}>{row.rate}</span>
-                      <span style={{ fontSize: "11px", color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>{row.applies}</span>
+
+                {/* PST registration — only show for PST provinces */}
+                {needsPst && (
+                  <div style={sec}>
+                    <SectionTitle>PST / QST registration</SectionTitle>
+                    <div style={{ border: "1px solid var(--border)", borderRadius: "10px", overflow: "hidden" }}>
+                      <ToggleRow
+                        label={`Registered to collect ${province === "QC" ? "QST" : province === "MB" ? "RST" : "PST"}`}
+                        sub={`You have a ${province === "QC" ? "QST" : "PST"} number and are authorized to collect it from customers. If off, GUS will not add ${province === "QC" ? "QST" : "PST"} to estimates.`}
+                        on={pstRegistered}
+                        onToggle={() => setPstRegistered(v => !v)}
+                        last
+                      />
                     </div>
-                  ))}
+                    {!pstRegistered && (
+                      <div style={{ marginTop: "10px", padding: "10px 14px", background: "rgba(242,106,27,0.07)", border: "1px solid rgba(242,106,27,0.2)", borderRadius: "8px", fontSize: "12.5px", color: "var(--text-secondary)", lineHeight: 1.6 }}>
+                        ⚠️ You may need to register for {province === "QC" ? "QST" : "PST"} before collecting it from customers. Estimates will show GST only until this is turned on.
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Live preview */}
+                <div style={sec}>
+                  <SectionTitle>How this applies to estimates — {PROVINCE_NAMES[province]}</SectionTitle>
+                  <div style={{ background: "var(--bg-page)", border: "1px solid var(--border)", borderRadius: "10px", overflow: "hidden" }}>
+                    <div style={{ padding: "10px 16px 6px", borderBottom: "1px solid var(--border)" }}>
+                      <span style={{ fontSize: "10px", fontFamily: "var(--font-mono)", letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--teal)" }}>// Live preview — sample estimate</span>
+                    </div>
+                    {/* Subtotals */}
+                    {[
+                      { label: "Materials (w/ markup)", value: `$${sampleMaterials.toFixed(2)}` },
+                      { label: "Labour", value: `$${sampleLabour.toFixed(2)}` },
+                      { label: "Subtotal", value: `$${(sampleMaterials + sampleLabour).toFixed(2)}`, bold: true },
+                    ].map((row, i) => (
+                      <div key={row.label} style={{ display: "flex", justifyContent: "space-between", padding: "9px 16px", borderBottom: "1px solid var(--border-light)", fontSize: "13px" }}>
+                        <span style={{ color: "var(--text-secondary)" }}>{row.label}</span>
+                        <span style={{ fontFamily: "var(--font-mono)", color: row.bold ? "var(--text)" : "var(--text-secondary)", fontWeight: row.bold ? 600 : 400 }}>{row.value}</span>
+                      </div>
+                    ))}
+                    {/* Tax lines from engine */}
+                    {taxPreview.lines
+                      .filter(line => !(needsPst && !pstRegistered && line.appliesTo === "materials"))
+                      .map((line, i, arr) => (
+                        <div key={line.name} style={{ display: "flex", justifyContent: "space-between", padding: "9px 16px", borderBottom: i < arr.length - 1 ? "1px solid var(--border-light)" : "1px solid var(--border)", fontSize: "13px", background: "rgba(26,191,191,0.03)" }}>
+                          <span style={{ color: "var(--teal)", fontFamily: "var(--font-mono)", fontSize: "12px" }}>{formatTaxLabel(line)}</span>
+                          <span style={{ fontFamily: "var(--font-mono)", color: "var(--teal)" }}>${line.amount.toFixed(2)}</span>
+                        </div>
+                      ))}
+                    {/* Grand total */}
+                    <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 16px", background: "rgba(242,106,27,0.05)", fontSize: "14px" }}>
+                      <span style={{ fontFamily: "var(--font-bebas)", letterSpacing: "0.06em", color: "var(--text)", fontSize: "16px" }}>Total</span>
+                      <span style={{ fontFamily: "var(--font-mono)", fontWeight: 700, color: "var(--orange)", fontSize: "15px" }}>
+                        ${(sampleMaterials + sampleLabour + taxPreview.totalTax).toFixed(2)} CAD
+                      </span>
+                    </div>
+                  </div>
+                  <p style={hint}>Changing province updates all future estimates. Existing sent estimates are not affected.</p>
                 </div>
+
+                <SaveBar />
               </div>
-              <SaveBar />
-            </div>
-          )}
+            );
+          })()}
 
           {/* ── DELIVERY ── */}
           {tab === "delivery" && (
@@ -704,7 +740,6 @@ export default function SettingsPage() {
           )}
 
         </main>
-      </div>
     </div>
   );
 }
