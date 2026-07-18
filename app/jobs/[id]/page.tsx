@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useState } from "react";
+import { use, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { mockJobs, mockBusinessProfile } from "@/lib/mockData";
 import { calculateTax, formatTaxLabel, PST_PROVINCES } from "@/lib/taxEngine";
@@ -25,6 +25,16 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
   const [laborRate, setLaborRate] = useState(job?.laborRate ?? 95);
   const [laborHours, setLaborHours] = useState(job?.laborHours ?? 2);
   const [margin, setMargin] = useState(job?.margin ?? 25);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [shareOrigin, setShareOrigin] = useState("");
+  const [customerResponse, setCustomerResponse] = useState<"accepted" | "declined" | null>(null);
+
+  useEffect(() => {
+    setShareOrigin(window.location.origin);
+    const stored = JSON.parse(localStorage.getItem("gus_responses") || "{}");
+    if (job?.id && stored[job.id]) setCustomerResponse(stored[job.id]);
+  }, [job?.id]);
 
   if (!job) return (
     <div style={{ padding: "60px", textAlign: "center", color: "var(--text-muted)" }}>
@@ -55,10 +65,22 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
   const showPstWarning = PST_PROVINCES.includes(province) && !pstRegistered;
   const grandTotal = subtotal + taxResult.totalTax;
 
+  const shareUrl = `${shareOrigin}/q/${job.id}`;
+  const copyLink = () => {
+    navigator.clipboard.writeText(shareUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  // Effective status — customer response overrides mock data
+  const effectiveStatus = customerResponse === "accepted" ? "Won"
+    : customerResponse === "declined" ? "Lost"
+    : job.status;
+
   const StatusIcon = () => {
-    if (job.status === "Draft") return <span style={{ width: "10px", height: "10px", borderRadius: "50%", border: "1.5px dashed var(--text-muted)", display: "inline-block" }} />;
-    if (job.status === "Sent") return <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#3b82f6", display: "inline-block" }} />;
-    if (job.status === "Won") return <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#10b981", display: "inline-block" }} />;
+    if (effectiveStatus === "Draft") return <span style={{ width: "10px", height: "10px", borderRadius: "50%", border: "1.5px dashed var(--text-muted)", display: "inline-block" }} />;
+    if (effectiveStatus === "Sent") return <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#3b82f6", display: "inline-block" }} />;
+    if (effectiveStatus === "Won") return <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#10b981", display: "inline-block" }} />;
     return <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#ef4444", display: "inline-block" }} />;
   };
 
@@ -112,11 +134,22 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
           <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "12px", color: "var(--text-secondary)", fontFamily: "var(--font-mono)" }}>
-            <StatusIcon /> {job.status}
+            <StatusIcon /> {effectiveStatus}
           </span>
           <button style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", fontSize: "18px", lineHeight: 1 }}>⋯</button>
         </div>
       </div>
+
+      {/* Customer response banner */}
+      {customerResponse && (
+        <div style={{ padding: "10px 20px", display: "flex", alignItems: "center", gap: "10px", background: customerResponse === "accepted" ? "rgba(16,185,129,0.08)" : "rgba(239,68,68,0.08)", borderBottom: `1px solid ${customerResponse === "accepted" ? "rgba(16,185,129,0.2)" : "rgba(239,68,68,0.2)"}` }}>
+          <span style={{ fontSize: "15px" }}>{customerResponse === "accepted" ? "✓" : "✕"}</span>
+          <span style={{ fontSize: "13px", color: customerResponse === "accepted" ? "#34d399" : "#f87171", fontWeight: 500 }}>
+            {customerResponse === "accepted" ? "Customer accepted this quote" : "Customer declined this quote"}
+          </span>
+          <span style={{ fontSize: "12px", color: "var(--text-muted)", fontFamily: "var(--font-mono)", marginLeft: "4px" }}>— status updated to {effectiveStatus}</span>
+        </div>
+      )}
 
       {/* Scrollable content */}
       <div style={{ flex: 1, overflowY: "auto", paddingBottom: "72px" }}>
@@ -373,6 +406,59 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
         )}
       </div>
 
+      {/* Share modal */}
+      {showShareModal && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}
+          onClick={e => { if (e.target === e.currentTarget) setShowShareModal(false); }}>
+          <div style={{ background: "var(--bg)", border: "1px solid var(--border)", borderRadius: "14px", padding: "28px", width: "100%", maxWidth: "460px", boxShadow: "0 24px 48px rgba(0,0,0,0.4)" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "20px" }}>
+              <div>
+                <div style={{ fontFamily: "var(--font-mono)", fontSize: "9px", color: "var(--teal)", letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: "4px" }}>// Share with customer</div>
+                <div style={{ fontSize: "17px", fontWeight: 500, color: "var(--text)" }}>Customer quote link</div>
+              </div>
+              <button onClick={() => setShowShareModal(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", fontSize: "20px", lineHeight: 1, padding: "4px" }}>×</button>
+            </div>
+
+            {/* Response status if already answered */}
+            {customerResponse && (
+              <div style={{ padding: "12px 14px", borderRadius: "8px", marginBottom: "16px", background: customerResponse === "accepted" ? "rgba(16,185,129,0.08)" : "rgba(239,68,68,0.08)", border: `1px solid ${customerResponse === "accepted" ? "rgba(16,185,129,0.2)" : "rgba(239,68,68,0.2)"}`, display: "flex", alignItems: "center", gap: "10px" }}>
+                <span style={{ fontSize: "16px" }}>{customerResponse === "accepted" ? "✓" : "✕"}</span>
+                <div>
+                  <div style={{ fontSize: "13px", fontWeight: 500, color: customerResponse === "accepted" ? "#34d399" : "#f87171" }}>
+                    Customer {customerResponse} this quote
+                  </div>
+                  <div style={{ fontSize: "11.5px", color: "var(--text-muted)", marginTop: "1px" }}>Job status updated to {effectiveStatus}</div>
+                </div>
+              </div>
+            )}
+
+            {/* Link field */}
+            <div style={{ marginBottom: "16px" }}>
+              <div style={{ fontSize: "12px", color: "var(--text-muted)", marginBottom: "6px", fontFamily: "var(--font-mono)" }}>Shareable link</div>
+              <div style={{ display: "flex", gap: "8px" }}>
+                <div style={{ flex: 1, background: "var(--bg-page)", border: "1px solid var(--border)", borderRadius: "8px", padding: "9px 12px", fontSize: "12.5px", color: "var(--text-secondary)", fontFamily: "var(--font-mono)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {shareUrl}
+                </div>
+                <button onClick={copyLink} style={{ background: copied ? "rgba(16,185,129,0.15)" : "rgba(255,255,255,0.07)", border: `1px solid ${copied ? "rgba(16,185,129,0.3)" : "var(--border)"}`, borderRadius: "8px", padding: "9px 14px", fontSize: "12.5px", color: copied ? "#34d399" : "var(--text-secondary)", cursor: "pointer", whiteSpace: "nowrap", fontWeight: 500, transition: "all 0.15s" }}>
+                  {copied ? "Copied ✓" : "Copy link"}
+                </button>
+              </div>
+            </div>
+
+            {/* Open preview */}
+            <a href={shareUrl} target="_blank" rel="noopener noreferrer"
+              style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "6px", width: "100%", padding: "10px", background: "var(--bg-page)", border: "1px solid var(--border)", borderRadius: "8px", fontSize: "13px", color: "var(--teal)", textDecoration: "none", marginBottom: "12px" }}>
+              <span>Open customer view</span>
+              <span style={{ fontSize: "11px" }}>↗</span>
+            </a>
+
+            <p style={{ fontSize: "11.5px", color: "var(--text-muted)", textAlign: "center", lineHeight: 1.6, fontFamily: "var(--font-mono)" }}>
+              // When the customer accepts or declines, this job updates automatically.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Fixed bottom bar */}
       <div style={{ position: "fixed", bottom: 0, left: "230px", right: 0, background: "var(--bg)", borderTop: "1px solid var(--border)", padding: "10px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", zIndex: 10 }}>
         {tab === "Design" && !hasDesign && (
@@ -409,7 +495,9 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
             </div>
             <div style={{ display: "flex", gap: "8px" }}>
               <button style={{ padding: "8px 16px", border: "1px solid var(--border)", borderRadius: "8px", background: "rgba(255,255,255,0.05)", fontSize: "13px", cursor: "pointer", color: "var(--text-secondary)" }}>Download Quote</button>
-              <button style={{ background: "var(--orange)", color: "#fff", border: "none", borderRadius: "8px", padding: "8px 18px", fontSize: "13px", fontWeight: 600, cursor: "pointer" }}>Share Quote</button>
+              <button onClick={() => setShowShareModal(true)} style={{ background: "var(--orange)", color: "#fff", border: "none", borderRadius: "8px", padding: "8px 18px", fontSize: "13px", fontWeight: 600, cursor: "pointer" }}>
+                {customerResponse ? "View response" : "Share Quote"}
+              </button>
             </div>
           </>
         )}

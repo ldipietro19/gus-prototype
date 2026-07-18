@@ -48,6 +48,9 @@ export default function Sidebar() {
   const pathname = usePathname();
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
 
+  // Hide sidebar on public customer-facing pages
+  if (pathname.startsWith("/q/")) return null;
+
   const dragging = useRef(false);
   const startX = useRef(0);
   const startWidth = useRef(0);
