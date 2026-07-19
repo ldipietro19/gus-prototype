@@ -407,9 +407,9 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
                 </div>
               )}
 
-              {/* Tax lines from engine */}
-              {taxResult.lines.map((line, i) => (
-                <div key={line.name} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "11px 20px", borderBottom: i < taxResult.lines.length - 1 ? "1px solid var(--border-light)" : "1px solid var(--border)" }}>
+              {/* Tax lines from engine — skip $0 lines */}
+              {taxResult.lines.filter(line => line.amount > 0).map((line, i, arr) => (
+                <div key={line.name} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "11px 20px", borderBottom: i < arr.length - 1 ? "1px solid var(--border-light)" : "1px solid var(--border)" }}>
                   <div>
                     <span style={{ fontSize: "13.5px", color: "var(--text-secondary)" }}>{formatTaxLabel(line)}</span>
                   </div>

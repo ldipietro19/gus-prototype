@@ -191,9 +191,9 @@ export default function CustomerQuotePage({ params }: { params: Promise<{ token:
             <span style={{ fontFamily: "'DM Mono', monospace", color: c.navy, fontWeight: 500 }}>${subtotal.toFixed(2)}</span>
           </div>
 
-          {/* Tax lines */}
-          {taxResult.lines.map((line, i) => (
-            <div key={line.name} style={{ display: "flex", justifyContent: "space-between", padding: "12px 20px", borderBottom: i < taxResult.lines.length - 1 ? `1px solid ${c.borderLight}` : `1px solid ${c.border}`, fontSize: "13px" }}>
+          {/* Tax lines — skip any line that calculated to $0 */}
+          {taxResult.lines.filter(line => line.amount > 0).map((line, i, arr) => (
+            <div key={line.name} style={{ display: "flex", justifyContent: "space-between", padding: "12px 20px", borderBottom: i < arr.length - 1 ? `1px solid ${c.borderLight}` : `1px solid ${c.border}`, fontSize: "13px" }}>
               <span style={{ color: c.secondary }}>{formatTaxLabel(line)}</span>
               <span style={{ fontFamily: "'DM Mono', monospace", color: c.secondary }}>${line.amount.toFixed(2)}</span>
             </div>
