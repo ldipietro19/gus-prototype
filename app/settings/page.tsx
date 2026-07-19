@@ -1,7 +1,7 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { calculateTax, formatTaxLabel, Province, PST_PROVINCES, PROVINCE_NAMES } from "@/lib/taxEngine";
-import { mockBusinessProfile } from "@/lib/mockData";
+import { mockBusinessProfile, defaultPricingSettings, loadPricingSettings, savePricingSettings } from "@/lib/mockData";
 
 type Tab =
   | "general" | "business" | "appearance"
@@ -58,12 +58,12 @@ function Field({ label, children, optional }: { label: string; children: React.R
   );
 }
 
-function SaveBar() {
+function SaveBar({ onSave }: { onSave?: () => void }) {
   const [saved, setSaved] = useState(false);
   return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: "12px", paddingTop: "20px", marginTop: "28px", borderTop: "1px solid var(--border)" }}>
       {saved && <span style={{ fontSize: "12.5px", color: "#34d399", display: "flex", alignItems: "center", gap: "5px" }}><i className="ti ti-check" style={{ fontSize: "14px" }} /> Saved</span>}
-      <button onClick={() => { setSaved(true); setTimeout(() => setSaved(false), 2500); }}
+      <button onClick={() => { onSave?.(); setSaved(true); setTimeout(() => setSaved(false), 2500); }}
         style={{ background: "var(--orange)", color: "white", border: "none", borderRadius: "8px", padding: "8px 20px", fontFamily: "var(--font-sans)", fontSize: "13.5px", fontWeight: 500, cursor: "pointer" }}>
         Save changes
       </button>
@@ -71,11 +71,12 @@ function SaveBar() {
   );
 }
 
-function RateCard({ label, value }: { label: string; value: number }) {
+function RateCard({ label, value, onChange }: { label: string; value: number; onChange?: (v: number) => void }) {
   return (
     <div style={{ background: "var(--bg-page)", border: "1px solid var(--border)", borderRadius: "10px", padding: "14px" }}>
       <span style={{ fontSize: "11px", color: "var(--text-muted)", display: "block", marginBottom: "6px", fontFamily: "var(--font-mono)", letterSpacing: "0.04em" }}>{label}</span>
-      <input type="number" defaultValue={value} style={{ fontSize: "18px", fontWeight: 500, border: "none", background: "none", padding: "0", height: "auto", color: "var(--text)", width: "100%", outline: "none", fontFamily: "var(--font-sans)" }} />
+      <input type="number" value={value} onChange={e => onChange?.(+e.target.value)}
+        style={{ fontSize: "18px", fontWeight: 500, border: "none", background: "none", padding: "0", height: "auto", color: "var(--text)", width: "100%", outline: "none", fontFamily: "var(--font-sans)" }} />
     </div>
   );
 }
@@ -105,6 +106,38 @@ export default function SettingsPage() {
   // Tax engine state — mirrors what would be saved in business profile
   const [province, setProvince] = useState<Province>(mockBusinessProfile.province);
   const [pstRegistered, setPstRegistered] = useState(mockBusinessProfile.pstRegistered);
+
+  // Pricing & Estimates state — persisted to localStorage
+  const [standardLaborRate, setStandardLaborRate] = useState(defaultPricingSettings.standardLaborRate);
+  const [callOutFee, setCallOutFee] = useState(defaultPricingSettings.callOutFee);
+  const [emergencyLaborRate, setEmergencyLaborRate] = useState(defaultPricingSettings.emergencyLaborRate);
+  const [defaultMarkup, setDefaultMarkup] = useState(defaultPricingSettings.defaultMarkup);
+  const [quoteValidDays, setQuoteValidDays] = useState(defaultPricingSettings.quoteValidDays);
+  const [paymentTerms, setPaymentTerms] = useState(defaultPricingSettings.paymentTerms);
+  const [depositPercent, setDepositPercent] = useState(defaultPricingSettings.depositPercent);
+  const [depositThreshold, setDepositThreshold] = useState(defaultPricingSettings.depositThreshold);
+  const [termsText, setTermsText] = useState(defaultPricingSettings.termsText);
+  const [labourWarranty, setLabourWarranty] = useState(defaultPricingSettings.labourWarranty);
+  const [partsWarranty, setPartsWarranty] = useState(defaultPricingSettings.partsWarranty);
+  const [pricingBufferFrom, setPricingBufferFrom] = useState(defaultPricingSettings.pricingBufferFrom);
+  const [pricingBufferTo, setPricingBufferTo] = useState(defaultPricingSettings.pricingBufferTo);
+
+  useEffect(() => {
+    const s = loadPricingSettings();
+    setStandardLaborRate(s.standardLaborRate);
+    setCallOutFee(s.callOutFee);
+    setEmergencyLaborRate(s.emergencyLaborRate);
+    setDefaultMarkup(s.defaultMarkup);
+    setQuoteValidDays(s.quoteValidDays);
+    setPaymentTerms(s.paymentTerms);
+    setDepositPercent(s.depositPercent);
+    setDepositThreshold(s.depositThreshold);
+    setTermsText(s.termsText);
+    setLabourWarranty(s.labourWarranty);
+    setPartsWarranty(s.partsWarranty);
+    setPricingBufferFrom(s.pricingBufferFrom);
+    setPricingBufferTo(s.pricingBufferTo);
+  }, []);
 
   const NAV: { group: string; items: { id: Tab; label: string; icon: string }[] }[] = [
     { group: "Settings", items: [
@@ -302,9 +335,9 @@ export default function SettingsPage() {
               <div style={sec}>
                 <SectionTitle>Labour rates</SectionTitle>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "10px", marginBottom: "10px" }}>
-                  <RateCard label="Call-out fee" value={150} />
-                  <RateCard label="Standard rate / hr" value={113} />
-                  <RateCard label="Emergency rate / hr" value={210} />
+                  <RateCard label="Call-out fee" value={callOutFee} onChange={setCallOutFee} />
+                  <RateCard label="Standard rate / hr" value={standardLaborRate} onChange={setStandardLaborRate} />
+                  <RateCard label="Emergency rate / hr" value={emergencyLaborRate} onChange={setEmergencyLaborRate} />
                 </div>
                 <div style={{ border: "1px solid var(--border)", borderRadius: "10px", overflow: "hidden" }}>
                   <ToggleRow label="Allow call-out waiver" sub="Waive the call-out fee when going straight to hourly billing." on={toggles.calloutWaiver} onToggle={() => tog("calloutWaiver")} last />
@@ -314,10 +347,10 @@ export default function SettingsPage() {
                 <SectionTitle>Default markup</SectionTitle>
                 <p style={{ fontSize: "12.5px", color: "var(--text-muted)", marginBottom: "14px", lineHeight: 1.6 }}>Applied to all materials on every estimate. Override per job anytime.</p>
                 <div style={{ maxWidth: "200px" }}>
-                  <RateCard label="Materials markup %" value={30} />
+                  <RateCard label="Materials markup %" value={defaultMarkup} onChange={setDefaultMarkup} />
                 </div>
               </div>
-              <SaveBar />
+              <SaveBar onSave={() => savePricingSettings({ standardLaborRate, callOutFee, emergencyLaborRate, allowCallOutWaiver: toggles.calloutWaiver, defaultMarkup })} />
             </div>
           )}
 
@@ -340,14 +373,14 @@ export default function SettingsPage() {
                 <SectionTitle>Validity & expiry</SectionTitle>
                 <div style={row2}>
                   <Field label="Estimate valid for (days)">
-                    <select style={sel}>
-                      <option>7 days</option><option>14 days</option><option selected>30 days</option><option>60 days</option><option>No expiry</option>
+                    <select value={quoteValidDays} onChange={e => setQuoteValidDays(+e.target.value)} style={sel}>
+                      <option value={7}>7 days</option><option value={14}>14 days</option><option value={30}>30 days</option><option value={60}>60 days</option>
                     </select>
                     <div style={hint}>Shown on estimate and flags expired in dashboard</div>
                   </Field>
                   <Field label="Expiry reminder">
                     <select style={sel}>
-                      <option>No reminder</option><option selected>3 days before</option><option>7 days before</option><option>1 day before</option>
+                      <option>No reminder</option><option>3 days before</option><option>7 days before</option><option>1 day before</option>
                     </select>
                   </Field>
                 </div>
@@ -361,21 +394,23 @@ export default function SettingsPage() {
               <div style={sec}>
                 <SectionTitle>Payment defaults</SectionTitle>
                 <div style={row2}>
-                  <Field label="Equipment deposit %"><input type="number" defaultValue={50} style={inp} /></Field>
+                  <Field label="Equipment deposit %">
+                    <input type="number" value={depositPercent} onChange={e => setDepositPercent(+e.target.value)} style={inp} />
+                  </Field>
                   <Field label="Deposit applies when equipment over">
                     <div style={{ display: "flex" }}>
                       <div style={{ background: "var(--bg-page)", border: "1px solid rgba(255,255,255,0.12)", borderRight: "none", borderRadius: "8px 0 0 8px", padding: "0 12px", fontSize: "13px", color: "var(--text-muted)", display: "flex", alignItems: "center", fontFamily: "var(--font-mono)" }}>$</div>
-                      <input type="number" defaultValue={1000} style={{ ...inp, borderRadius: "0 8px 8px 0", flex: 1 }} />
+                      <input type="number" value={depositThreshold} onChange={e => setDepositThreshold(+e.target.value)} style={{ ...inp, borderRadius: "0 8px 8px 0", flex: 1 }} />
                     </div>
                   </Field>
                 </div>
                 <Field label="Payment terms">
-                  <select style={sel}>
+                  <select value={paymentTerms} onChange={e => setPaymentTerms(e.target.value)} style={sel}>
                     <option>Due on completion</option><option>Net 7</option><option>Net 15</option><option>Net 30</option>
                   </select>
                 </Field>
               </div>
-              <SaveBar />
+              <SaveBar onSave={() => savePricingSettings({ quoteValidDays, paymentTerms, depositPercent, depositThreshold, includePrecautionWork: toggles.precautionWork })} />
             </div>
           )}
 
@@ -508,23 +543,27 @@ export default function SettingsPage() {
               <div style={sec}>
                 <SectionTitle>Terms & conditions</SectionTitle>
                 <div style={{ marginBottom: "16px" }}>
-                  <textarea rows={6} defaultValue="This estimate is based on the information provided. Due to unpredictable price increases, price is valid at time of presentation, subject to possible changes from 5% to 10%. Any changes to scope, materials, or unforeseen conditions may result in additional charges. Additional work will be presented to the client for approval before continuing. Work will be scheduled upon acceptance of this estimate and a 50% deposit on equipment (if applicable and for equipment only over $1,000.00). Full payment is due upon completion of work."
+                  <textarea rows={6} value={termsText} onChange={e => setTermsText(e.target.value)}
                     style={{ ...inp, height: "auto", padding: "10px 12px", resize: "vertical" as const, lineHeight: 1.6 }} />
                 </div>
                 <div style={row2}>
-                  <Field label="Price buffer — from %"><input type="number" defaultValue={5} style={inp} /></Field>
-                  <Field label="Price buffer — to %"><input type="number" defaultValue={10} style={inp} /></Field>
+                  <Field label="Price buffer — from %"><input type="number" value={pricingBufferFrom} onChange={e => setPricingBufferFrom(+e.target.value)} style={inp} /></Field>
+                  <Field label="Price buffer — to %"><input type="number" value={pricingBufferTo} onChange={e => setPricingBufferTo(+e.target.value)} style={inp} /></Field>
                 </div>
-                <div style={hint}>Shown in terms as "subject to possible changes from 5% to 10%"</div>
+                <div style={hint}>Shown in terms as "subject to possible changes from {pricingBufferFrom}% to {pricingBufferTo}%"</div>
               </div>
               <div style={sec}>
                 <SectionTitle>Warranty</SectionTitle>
                 <div style={row2}>
                   <Field label="Labour warranty">
-                    <select style={sel}><option>1 year</option><option>2 years</option><option>90 days</option><option>No warranty</option></select>
+                    <select value={labourWarranty} onChange={e => setLabourWarranty(e.target.value)} style={sel}>
+                      <option>1 year</option><option>2 years</option><option>90 days</option><option>No warranty</option>
+                    </select>
                   </Field>
                   <Field label="Parts / equipment warranty">
-                    <select style={sel}><option>Manufacturer warranty applies</option><option>1 year parts & labour</option><option>2 years parts & labour</option></select>
+                    <select value={partsWarranty} onChange={e => setPartsWarranty(e.target.value)} style={sel}>
+                      <option>Manufacturer warranty applies</option><option>1 year parts & labour</option><option>2 years parts & labour</option>
+                    </select>
                   </Field>
                 </div>
                 <div style={{ border: "1px solid var(--border)", borderRadius: "10px", overflow: "hidden" }}>
@@ -536,7 +575,7 @@ export default function SettingsPage() {
                 <textarea rows={3} placeholder="Notes that appear on every estimate — e.g. parking info, site access, cancellation policy…"
                   style={{ ...inp, height: "auto", padding: "10px 12px", resize: "vertical" as const, lineHeight: 1.6 }} />
               </div>
-              <SaveBar />
+              <SaveBar onSave={() => savePricingSettings({ termsText, labourWarranty, partsWarranty, showWarranty: toggles.warranty, pricingBufferFrom, pricingBufferTo })} />
             </div>
           )}
 

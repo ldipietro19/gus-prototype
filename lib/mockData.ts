@@ -102,7 +102,7 @@ export const mockJobs: Job[] = [
         ],
       },
     ],
-    laborRate: 95, laborHours: 2, margin: 25, tax: 12,
+    laborHours: 2,
   },
   { id: "2", jobId: "KP-07-15-26-01", status: "Draft", customer: null, jobType: "Appliance Hookup", hasParts: true, hasQuote: false, value: null, closedAt: null, createdAt: "Jul 15" },
   { id: "3", jobId: "KP-06-25-26-01", status: "Sent", customer: null, jobType: "Appliance Hookup", hasParts: true, hasQuote: true, value: 316, closedAt: null, createdAt: "Jul 15", laborRate: 95, laborHours: 2, margin: 25, tax: 12 },
@@ -126,6 +126,64 @@ export const mockBusinessProfile: BusinessProfile = {
   companyName: "LC Plumbing Co",
   gstNumber: "715748331RT0001",
 };
+
+// ── Pricing Settings ─────────────────────────────────────────────────────────
+export interface PricingSettings {
+  // Rates
+  standardLaborRate: number;
+  callOutFee: number;
+  emergencyLaborRate: number;
+  allowCallOutWaiver: boolean;
+  defaultMarkup: number;
+  // Defaults
+  quoteValidDays: number;
+  paymentTerms: string;
+  depositPercent: number;
+  depositThreshold: number;
+  includePrecautionWork: boolean;
+  // Terms
+  termsText: string;
+  labourWarranty: string;
+  partsWarranty: string;
+  showWarranty: boolean;
+  pricingBufferFrom: number;
+  pricingBufferTo: number;
+}
+
+export const defaultPricingSettings: PricingSettings = {
+  standardLaborRate: 113,
+  callOutFee: 150,
+  emergencyLaborRate: 210,
+  allowCallOutWaiver: true,
+  defaultMarkup: 30,
+  quoteValidDays: 30,
+  paymentTerms: "Due on completion",
+  depositPercent: 50,
+  depositThreshold: 1000,
+  includePrecautionWork: true,
+  termsText: "This estimate is based on the information provided. Due to unpredictable price increases, price is valid at time of presentation, subject to possible changes from 5% to 10%. Any changes to scope, materials, or unforeseen conditions may result in additional charges. Additional work will be presented to the client for approval before continuing. Work will be scheduled upon acceptance of this estimate and a 50% deposit on equipment (if applicable and for equipment only over $1,000.00). Full payment is due upon completion of work.",
+  labourWarranty: "1 year",
+  partsWarranty: "Manufacturer warranty applies",
+  showWarranty: true,
+  pricingBufferFrom: 5,
+  pricingBufferTo: 10,
+};
+
+const SETTINGS_KEY = "gus_settings";
+
+export function loadPricingSettings(): PricingSettings {
+  if (typeof window === "undefined") return defaultPricingSettings;
+  try {
+    const stored = localStorage.getItem(SETTINGS_KEY);
+    if (stored) return { ...defaultPricingSettings, ...JSON.parse(stored) };
+  } catch {}
+  return defaultPricingSettings;
+}
+
+export function savePricingSettings(patch: Partial<PricingSettings>) {
+  const current = loadPricingSettings();
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ...current, ...patch }));
+}
 
 export const mockCustomers = [
   { id: "1", name: "Lindsay DiPietro", type: "Personal", email: "lindsaydipietro@icloud.com", phone: "778-873-2977", address: "19681 75 Ave", lastEdited: "Jun 24, 7:55 AM" },

@@ -1,7 +1,7 @@
 "use client";
 
 import { use, useEffect, useState } from "react";
-import { mockJobs, mockBusinessProfile } from "@/lib/mockData";
+import { mockJobs, mockBusinessProfile, defaultPricingSettings, loadPricingSettings } from "@/lib/mockData";
 import { calculateTax, formatTaxLabel } from "@/lib/taxEngine";
 
 type Response = "pending" | "accepted" | "declined";
@@ -10,6 +10,8 @@ export default function CustomerQuotePage({ params }: { params: Promise<{ token:
   const { token } = use(params);
   const [response, setResponse] = useState<Response>("pending");
   const [loaded, setLoaded] = useState(false);
+  const [quoteValidDays, setQuoteValidDays] = useState(defaultPricingSettings.quoteValidDays);
+  const [termsText, setTermsText] = useState(defaultPricingSettings.termsText);
 
   // token = jobId for prototype
   const job = mockJobs.find(j => j.id === token);
@@ -17,6 +19,10 @@ export default function CustomerQuotePage({ params }: { params: Promise<{ token:
   useEffect(() => {
     const stored = JSON.parse(localStorage.getItem("gus_responses") || "{}");
     if (stored[token]) setResponse(stored[token]);
+    // Load pricing settings
+    const s = loadPricingSettings();
+    setQuoteValidDays(s.quoteValidDays);
+    setTermsText(s.termsText);
     setLoaded(true);
   }, [token]);
 
@@ -41,18 +47,22 @@ export default function CustomerQuotePage({ params }: { params: Promise<{ token:
     );
   }
 
-  // Financials (same as job detail page)
+  // Financials (same as job detail page) — use settings defaults if no job override
   const materialsCost = job.parts?.flatMap(g => g.items).reduce((s, i) => s + i.qty * i.unit, 0) ?? 0;
-  const margin = job.margin ?? 25;
+  const margin = job.margin ?? defaultPricingSettings.defaultMarkup;
   const materialsWithMargin = materialsCost * (1 + margin / 100);
   const labour = (job.laborRate ?? 95) * (job.laborHours ?? 2);
   const subtotal = materialsWithMargin + labour;
   const taxResult = calculateTax(mockBusinessProfile.province, materialsWithMargin, labour);
   const grandTotal = subtotal + taxResult.totalTax;
 
-  // Validity date (30 days from a fixed date for prototype)
-  const validUntil = "August 17, 2026";
-  const issueDate = "July 18, 2026";
+  // Validity date — computed from settings quoteValidDays
+  const issueDateObj = new Date();
+  const validUntilObj = new Date(issueDateObj);
+  validUntilObj.setDate(issueDateObj.getDate() + quoteValidDays);
+  const fmt = (d: Date) => d.toLocaleDateString("en-CA", { year: "numeric", month: "long", day: "numeric" });
+  const issueDate = fmt(issueDateObj);
+  const validUntil = fmt(validUntilObj);
 
   const c = {
     navy: "#0D1B2E",
@@ -198,7 +208,7 @@ export default function CustomerQuotePage({ params }: { params: Promise<{ token:
         <div style={{ background: c.card, border: `1px solid ${c.border}`, borderRadius: "12px", padding: "16px 20px", marginBottom: "28px" }}>
           <div style={{ fontSize: "10px", fontFamily: "'DM Mono', monospace", color: c.secondary, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: "8px" }}>// Terms</div>
           <p style={{ fontSize: "12px", color: c.secondary, lineHeight: 1.7, margin: 0 }}>
-            This estimate is based on the information provided. Due to unpredictable price increases, price is valid at time of presentation, subject to possible changes from 5% to 10%. Any changes to scope, materials, or unforeseen conditions may result in additional charges. Full payment is due upon completion of work. Labour warranted for 1 year. Parts subject to manufacturer warranty.
+            {termsText}
           </p>
         </div>
 

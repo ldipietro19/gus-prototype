@@ -2,7 +2,7 @@
 
 import { use, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { mockJobs, mockBusinessProfile } from "@/lib/mockData";
+import { mockJobs, mockBusinessProfile, loadPricingSettings } from "@/lib/mockData";
 import { calculateTax, formatTaxLabel, PST_PROVINCES } from "@/lib/taxEngine";
 
 type Tab = "Design" | "BOM" | "Quote";
@@ -22,9 +22,9 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
   const [answers, setAnswers] = useState<Record<number, string>>(
     Object.fromEntries((job?.todos ?? []).map((t, i) => [i, t.answer ?? ""]))
   );
-  const [laborRate, setLaborRate] = useState(job?.laborRate ?? 95);
+  const [laborRate, setLaborRate] = useState(job?.laborRate ?? 113);
   const [laborHours, setLaborHours] = useState(job?.laborHours ?? 2);
-  const [margin, setMargin] = useState(job?.margin ?? 25);
+  const [margin, setMargin] = useState(job?.margin ?? 30);
   const [showShareModal, setShowShareModal] = useState(false);
   const [copied, setCopied] = useState(false);
   const [shareOrigin, setShareOrigin] = useState("");
@@ -32,6 +32,11 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
 
   useEffect(() => {
     setShareOrigin(window.location.origin);
+
+    // Apply settings defaults if job has no job-specific override
+    const s = loadPricingSettings();
+    if (!job?.laborRate) setLaborRate(s.standardLaborRate);
+    if (!job?.margin) setMargin(s.defaultMarkup);
 
     const checkResponse = () => {
       const stored = JSON.parse(localStorage.getItem("gus_responses") || "{}");
