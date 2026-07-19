@@ -12,9 +12,9 @@ const HISTORY = [
 ];
 
 const JOB_TYPES = [
-  { label: "Water Treatment",  count: 14, revenue: 11480, color: "#1ABFBF" },
-  { label: "Appliance Hookup", count: 16, revenue:  6820, color: "#F26A1B" },
-  { label: "Custom Job",       count:  1, revenue:  1220, color: "#3D6480" },
+  { label: "Water Treatment",  count: 14, revenue: 11480, margin: 31, color: "#1ABFBF" },
+  { label: "Appliance Hookup", count: 16, revenue:  6820, margin: 24, color: "#F26A1B" },
+  { label: "Custom Job",       count:  1, revenue:  1220, margin: 18, color: "#3D6480" },
 ];
 
 export default function AnalyticsPage() {
@@ -311,14 +311,15 @@ export default function AnalyticsPage() {
             ))}
           </div>
 
-          {/* Jobs by type */}
+          {/* Jobs by type + margin */}
           <div style={{ background: "var(--bg)", border: "1px solid var(--border)", borderRadius: "10px", padding: "20px" }}>
             <p style={{ fontFamily: "var(--font-mono)", fontSize: "9px", color: "var(--teal)", textTransform: "uppercase", letterSpacing: "0.14em", marginBottom: "20px" }}>
-              // Revenue by Job Type
+              // Revenue & Margin by Job Type
             </p>
             {JOB_TYPES.map((t, i) => {
               const totalRevenue = JOB_TYPES.reduce((s, x) => s + x.revenue, 0);
-              const pct = Math.round((t.revenue / totalRevenue) * 100);
+              const revPct = Math.round((t.revenue / totalRevenue) * 100);
+              const marginColor = t.margin >= 28 ? "#1ABFBF" : t.margin >= 22 ? "#F26A1B" : "#3D6480";
               return (
                 <div key={t.label} style={{ marginBottom: i < JOB_TYPES.length - 1 ? "18px" : 0 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
@@ -326,19 +327,39 @@ export default function AnalyticsPage() {
                       <span style={{ width: "8px", height: "8px", borderRadius: "2px", background: t.color, display: "inline-block", flexShrink: 0 }} />
                       <span style={{ fontSize: "12px", color: "var(--text-secondary)" }}>{t.label}</span>
                     </div>
-                    <span style={{ fontSize: "12px", fontFamily: "var(--font-mono)", color: "var(--text)" }}>
-                      ${t.revenue.toLocaleString()}
-                    </span>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <span style={{ fontSize: "11px", fontFamily: "var(--font-mono)", color: marginColor, background: `${marginColor}18`, border: `1px solid ${marginColor}40`, borderRadius: "4px", padding: "1px 6px" }}>
+                        {t.margin}% margin
+                      </span>
+                      <span style={{ fontSize: "12px", fontFamily: "var(--font-mono)", color: "var(--text)" }}>
+                        ${t.revenue.toLocaleString()}
+                      </span>
+                    </div>
                   </div>
-                  <div style={{ height: "5px", background: "rgba(255,255,255,0.06)", borderRadius: "99px", overflow: "hidden" }}>
-                    <div style={{ width: `${pct}%`, height: "100%", background: t.color, borderRadius: "99px" }} />
+                  {/* Revenue bar */}
+                  <div style={{ height: "4px", background: "rgba(255,255,255,0.06)", borderRadius: "99px", overflow: "hidden", marginBottom: "3px" }}>
+                    <div style={{ width: `${revPct}%`, height: "100%", background: t.color, borderRadius: "99px" }} />
+                  </div>
+                  {/* Margin bar */}
+                  <div style={{ height: "4px", background: "rgba(255,255,255,0.06)", borderRadius: "99px", overflow: "hidden" }}>
+                    <div style={{ width: `${t.margin}%`, height: "100%", background: marginColor, borderRadius: "99px", opacity: 0.5 }} />
                   </div>
                   <p style={{ fontSize: "10px", color: "var(--text-muted)", fontFamily: "var(--font-mono)", marginTop: "4px" }}>
-                    {t.count} jobs · {pct}% of revenue
+                    {t.count} jobs · {revPct}% of revenue
                   </p>
                 </div>
               );
             })}
+
+            {/* Legend */}
+            <div style={{ marginTop: "16px", paddingTop: "12px", borderTop: "1px solid var(--border-light)", display: "flex", gap: "12px" }}>
+              <span style={{ fontSize: "9px", fontFamily: "var(--font-mono)", color: "var(--text-muted)", display: "flex", alignItems: "center", gap: "4px" }}>
+                <span style={{ display: "inline-block", width: "16px", height: "3px", background: "var(--text-muted)", borderRadius: "2px", opacity: 0.4 }} /> Revenue share
+              </span>
+              <span style={{ fontSize: "9px", fontFamily: "var(--font-mono)", color: "var(--text-muted)", display: "flex", alignItems: "center", gap: "4px" }}>
+                <span style={{ display: "inline-block", width: "16px", height: "3px", background: "#1ABFBF", borderRadius: "2px", opacity: 0.5 }} /> Margin %
+              </span>
+            </div>
           </div>
 
           {/* Recent closes */}
