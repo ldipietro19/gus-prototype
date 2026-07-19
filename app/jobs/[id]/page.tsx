@@ -2,7 +2,7 @@
 
 import { use, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { mockJobs, mockBusinessProfile, loadPricingSettings } from "@/lib/mockData";
+import { mockJobs, defaultPricingSettings, loadPricingSettings } from "@/lib/mockData";
 import { calculateTax, formatTaxLabel, PST_PROVINCES } from "@/lib/taxEngine";
 
 type Tab = "Design" | "BOM" | "Quote";
@@ -25,6 +25,8 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
   const [laborRate, setLaborRate] = useState(job?.laborRate ?? 113);
   const [laborHours, setLaborHours] = useState(job?.laborHours ?? 2);
   const [margin, setMargin] = useState(job?.margin ?? 30);
+  const [province, setProvince] = useState(defaultPricingSettings.province);
+  const [pstRegistered, setPstRegistered] = useState(defaultPricingSettings.pstRegistered);
   const [showShareModal, setShowShareModal] = useState(false);
   const [copied, setCopied] = useState(false);
   const [shareOrigin, setShareOrigin] = useState("");
@@ -33,10 +35,12 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
   useEffect(() => {
     setShareOrigin(window.location.origin);
 
-    // Apply settings defaults if job has no job-specific override
+    // Apply settings defaults
     const s = loadPricingSettings();
     if (!job?.laborRate) setLaborRate(s.standardLaborRate);
     if (!job?.margin) setMargin(s.defaultMarkup);
+    setProvince(s.province);
+    setPstRegistered(s.pstRegistered);
 
     const checkResponse = () => {
       const stored = JSON.parse(localStorage.getItem("gus_responses") || "{}");
@@ -76,8 +80,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
   const labour = laborRate * laborHours;
   const subtotal = materialsWithMargin + labour;
 
-  // Tax engine
-  const { province, pstRegistered } = mockBusinessProfile;
+  // Tax engine — reads province from settings (loaded in useEffect)
   const taxResult = calculateTax(province, materialsWithMargin, labour);
   const showPstWarning = PST_PROVINCES.includes(province) && !pstRegistered;
   const grandTotal = subtotal + taxResult.totalTax;

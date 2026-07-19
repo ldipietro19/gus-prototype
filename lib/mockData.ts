@@ -129,6 +129,9 @@ export const mockBusinessProfile: BusinessProfile = {
 
 // ── Pricing Settings ─────────────────────────────────────────────────────────
 export interface PricingSettings {
+  // Tax / province
+  province: import("./taxEngine").Province;
+  pstRegistered: boolean;
   // Rates
   standardLaborRate: number;
   callOutFee: number;
@@ -151,6 +154,8 @@ export interface PricingSettings {
 }
 
 export const defaultPricingSettings: PricingSettings = {
+  province: "BC",
+  pstRegistered: true,
   standardLaborRate: 113,
   callOutFee: 150,
   emergencyLaborRate: 210,

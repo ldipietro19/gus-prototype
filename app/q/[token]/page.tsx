@@ -12,6 +12,7 @@ export default function CustomerQuotePage({ params }: { params: Promise<{ token:
   const [loaded, setLoaded] = useState(false);
   const [quoteValidDays, setQuoteValidDays] = useState(defaultPricingSettings.quoteValidDays);
   const [termsText, setTermsText] = useState(defaultPricingSettings.termsText);
+  const [province, setProvince] = useState(defaultPricingSettings.province);
 
   // token = jobId for prototype
   const job = mockJobs.find(j => j.id === token);
@@ -23,6 +24,7 @@ export default function CustomerQuotePage({ params }: { params: Promise<{ token:
     const s = loadPricingSettings();
     setQuoteValidDays(s.quoteValidDays);
     setTermsText(s.termsText);
+    setProvince(s.province);
     setLoaded(true);
   }, [token]);
 
@@ -53,7 +55,7 @@ export default function CustomerQuotePage({ params }: { params: Promise<{ token:
   const materialsWithMargin = materialsCost * (1 + margin / 100);
   const labour = (job.laborRate ?? 95) * (job.laborHours ?? 2);
   const subtotal = materialsWithMargin + labour;
-  const taxResult = calculateTax(mockBusinessProfile.province, materialsWithMargin, labour);
+  const taxResult = calculateTax(province, materialsWithMargin, labour);
   const grandTotal = subtotal + taxResult.totalTax;
 
   // Validity date — computed from settings quoteValidDays

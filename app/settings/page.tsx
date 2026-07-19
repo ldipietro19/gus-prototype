@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { calculateTax, formatTaxLabel, Province, PST_PROVINCES, PROVINCE_NAMES } from "@/lib/taxEngine";
-import { mockBusinessProfile, defaultPricingSettings, loadPricingSettings, savePricingSettings } from "@/lib/mockData";
+import { defaultPricingSettings, loadPricingSettings, savePricingSettings } from "@/lib/mockData";
 
 type Tab =
   | "general" | "business" | "appearance"
@@ -103,9 +103,9 @@ export default function SettingsPage() {
   });
   const tog = (key: string) => setToggles(t => ({ ...t, [key]: !t[key] }));
 
-  // Tax engine state — mirrors what would be saved in business profile
-  const [province, setProvince] = useState<Province>(mockBusinessProfile.province);
-  const [pstRegistered, setPstRegistered] = useState(mockBusinessProfile.pstRegistered);
+  // Tax engine state — persisted to localStorage via PricingSettings
+  const [province, setProvince] = useState<Province>(defaultPricingSettings.province);
+  const [pstRegistered, setPstRegistered] = useState(defaultPricingSettings.pstRegistered);
 
   // Pricing & Estimates state — persisted to localStorage
   const [standardLaborRate, setStandardLaborRate] = useState(defaultPricingSettings.standardLaborRate);
@@ -124,6 +124,8 @@ export default function SettingsPage() {
 
   useEffect(() => {
     const s = loadPricingSettings();
+    setProvince(s.province);
+    setPstRegistered(s.pstRegistered);
     setStandardLaborRate(s.standardLaborRate);
     setCallOutFee(s.callOutFee);
     setEmergencyLaborRate(s.emergencyLaborRate);
@@ -503,7 +505,7 @@ export default function SettingsPage() {
                   <p style={hint}>Changing province updates all future estimates. Existing sent estimates are not affected.</p>
                 </div>
 
-                <SaveBar />
+                <SaveBar onSave={() => savePricingSettings({ province, pstRegistered })} />
               </div>
             );
           })()}
