@@ -180,32 +180,32 @@ export default function HomePage() {
         color: "var(--teal)",
         letterSpacing: "0.2em",
         textTransform: "uppercase",
-        marginBottom: "20px",
+        marginBottom: "24px",
       }}>
         // {dayName} · {dateStr}
       </p>
 
-      {/* Greeting */}
+      {/* Greeting — one line */}
       <h1 style={{
         fontFamily: "var(--font-bebas)",
-        fontSize: "clamp(40px, 5.5vw, 68px)",
+        fontSize: "clamp(38px, 5vw, 62px)",
         letterSpacing: "0.03em",
         lineHeight: 1,
-        color: "var(--text)",
-        marginBottom: "4px",
+        marginBottom: "10px",
       }}>
-        {greeting}
+        <span style={{ color: "var(--text)" }}>{greeting} </span>
+        <span style={{ color: "var(--orange)" }}>{mounted ? firstName : "Kelsea"}.</span>
       </h1>
-      <h1 style={{
-        fontFamily: "var(--font-bebas)",
-        fontSize: "clamp(40px, 5.5vw, 68px)",
-        letterSpacing: "0.03em",
-        lineHeight: 1,
-        color: "var(--orange)",
-        marginBottom: "40px",
+
+      {/* Sub-line */}
+      <p style={{
+        fontSize: "15px",
+        color: "var(--text-secondary)",
+        marginBottom: "20px",
+        lineHeight: 1.5,
       }}>
-        {mounted ? firstName : "KELSEA"}.
-      </h1>
+        What are we working on today?
+      </p>
 
       {/* New job input */}
       <div style={{
