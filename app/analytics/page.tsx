@@ -283,33 +283,166 @@ export default function AnalyticsPage() {
           </div>
         </div>
 
-        {/* ── Bottom row ── */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "12px" }}>
+        {/* ── Estimate Intelligence ── */}
+        <p style={{ fontFamily: "var(--font-mono)", fontSize: "9px", color: "var(--teal)", textTransform: "uppercase", letterSpacing: "0.2em", marginBottom: "14px" }}>
+          // Estimate Intelligence
+        </p>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "12px", marginBottom: "14px" }}>
 
-          {/* Quote funnel */}
+          {/* Enhanced Quote Funnel */}
           <div style={{ background: "var(--bg)", border: "1px solid var(--border)", borderRadius: "10px", padding: "20px" }}>
             <p style={{ fontFamily: "var(--font-mono)", fontSize: "9px", color: "var(--teal)", textTransform: "uppercase", letterSpacing: "0.14em", marginBottom: "20px" }}>
               // Quote Funnel
             </p>
             {[
-              { label: "Created",          count: funnelCreated, pct: 100,                                                       color: "#3D6480" },
-              { label: "Sent to Customer", count: funnelSent,    pct: Math.round((funnelSent / funnelCreated) * 100),             color: "#B0CFE0" },
-              { label: "Won",              count: funnelWon,     pct: Math.round((funnelWon  / funnelCreated) * 100),             color: "#1ABFBF" },
+              { label: "Job created",        count: 63, stagePct: null,  color: "#3D6480", dropNote: null },
+              { label: "Estimate sent",       count: 46, stagePct: 73,   color: "#B0CFE0", dropNote: "27% never estimated" },
+              { label: "Customer responded",  count: 38, stagePct: 83,   color: "#F26A1B", dropNote: "17% went cold" },
+              { label: "Won",                 count: 32, stagePct: 84,   color: "#1ABFBF", dropNote: null },
             ].map((stage, i) => (
-              <div key={stage.label} style={{ marginBottom: i < 2 ? "18px" : 0 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "6px" }}>
-                  <span style={{ fontSize: "12px", color: "var(--text-secondary)" }}>{stage.label}</span>
+              <div key={stage.label} style={{ marginBottom: i < 3 ? "14px" : 0 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "5px" }}>
+                  <span style={{ fontSize: "11.5px", color: "var(--text-secondary)" }}>{stage.label}</span>
                   <span style={{ fontSize: "13px", fontFamily: "var(--font-mono)", color: stage.color, fontWeight: 500 }}>{stage.count}</span>
                 </div>
-                <div style={{ height: "5px", background: "rgba(255,255,255,0.06)", borderRadius: "99px", overflow: "hidden" }}>
-                  <div style={{ width: `${stage.pct}%`, height: "100%", background: stage.color, borderRadius: "99px" }} />
+                <div style={{ height: "4px", background: "rgba(255,255,255,0.06)", borderRadius: "99px", overflow: "hidden" }}>
+                  <div style={{ width: `${stage.stagePct ?? 100}%`, height: "100%", background: stage.color, borderRadius: "99px" }} />
                 </div>
-                <p style={{ fontSize: "10px", color: "var(--text-muted)", fontFamily: "var(--font-mono)", marginTop: "4px" }}>
-                  {stage.pct}% of created
-                </p>
+                {stage.stagePct && (
+                  <div style={{ display: "flex", justifyContent: "space-between", marginTop: "3px" }}>
+                    <p style={{ fontSize: "9.5px", color: stage.color, fontFamily: "var(--font-mono)" }}>
+                      {stage.stagePct}% of previous stage
+                    </p>
+                    {stage.dropNote && (
+                      <p style={{ fontSize: "9.5px", color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
+                        ↓ {stage.dropNote}
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
             ))}
+            <div style={{ marginTop: "14px", paddingTop: "12px", borderTop: "1px solid var(--border-light)" }}>
+              <p style={{ fontSize: "11px", color: "var(--text-secondary)", lineHeight: 1.6 }}>
+                When a customer responds, you close <span style={{ color: "#1ABFBF", fontWeight: 600 }}>84%</span> of the time. The leak is getting estimates out.
+              </p>
+            </div>
           </div>
+
+          {/* Days to acceptance */}
+          <div style={{ background: "var(--bg)", border: "1px solid var(--border)", borderRadius: "10px", padding: "20px" }}>
+            <p style={{ fontFamily: "var(--font-mono)", fontSize: "9px", color: "var(--teal)", textTransform: "uppercase", letterSpacing: "0.14em", marginBottom: "20px" }}>
+              // Time to Response
+            </p>
+
+            {/* Big number */}
+            <div style={{ marginBottom: "24px" }}>
+              <p style={{ fontFamily: "var(--font-bebas)", fontSize: "64px", color: "#1ABFBF", lineHeight: 1, letterSpacing: "0.02em" }}>
+                2.4
+              </p>
+              <p style={{ fontSize: "11px", color: "var(--text-muted)", fontFamily: "var(--font-mono)", marginTop: "2px" }}>
+                avg days · won jobs
+              </p>
+            </div>
+
+            {/* Won vs Lost comparison */}
+            {[
+              { label: "Won jobs",  days: 2.4, color: "#1ABFBF", max: 8 },
+              { label: "Lost jobs", days: 5.1, color: "#ef4444", max: 8 },
+            ].map(row => (
+              <div key={row.label} style={{ marginBottom: "14px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "5px" }}>
+                  <span style={{ fontSize: "11.5px", color: "var(--text-secondary)" }}>{row.label}</span>
+                  <span style={{ fontSize: "12px", fontFamily: "var(--font-mono)", color: row.color }}>
+                    {row.days} days avg
+                  </span>
+                </div>
+                <div style={{ height: "5px", background: "rgba(255,255,255,0.06)", borderRadius: "99px", overflow: "hidden" }}>
+                  <div style={{ width: `${(row.days / row.max) * 100}%`, height: "100%", background: row.color, borderRadius: "99px" }} />
+                </div>
+              </div>
+            ))}
+
+            <div style={{ marginTop: "14px", paddingTop: "12px", borderTop: "1px solid var(--border-light)", display: "flex", flexDirection: "column", gap: "8px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span style={{ fontSize: "11px", color: "var(--text-secondary)" }}>Close within 3 days</span>
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: "12px", color: "#1ABFBF", fontWeight: 600 }}>72%</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span style={{ fontSize: "11px", color: "var(--text-secondary)" }}>Close after 7+ days</span>
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: "12px", color: "#ef4444" }}>18%</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Estimate aging */}
+          <div style={{ background: "var(--bg)", border: "1px solid var(--border)", borderRadius: "10px", padding: "20px" }}>
+            <p style={{ fontFamily: "var(--font-mono)", fontSize: "9px", color: "var(--teal)", textTransform: "uppercase", letterSpacing: "0.14em", marginBottom: "6px" }}>
+              // Pipeline at Risk
+            </p>
+            <p style={{ fontSize: "11px", color: "var(--text-muted)", fontFamily: "var(--font-mono)", marginBottom: "16px" }}>
+              Open estimates by age
+            </p>
+
+            {/* Heat legend */}
+            <div style={{ display: "flex", gap: "10px", marginBottom: "16px", flexWrap: "wrap" }}>
+              {[
+                { label: "Fresh", color: "#10b981", range: "0–3d" },
+                { label: "Warm",  color: "#F26A1B", range: "4–7d" },
+                { label: "Cold",  color: "#ef4444", range: "8–14d" },
+                { label: "Dead",  color: "#3D6480", range: "14d+" },
+              ].map(h => (
+                <span key={h.label} style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "9px", fontFamily: "var(--font-mono)", color: "var(--text-muted)" }}>
+                  <span style={{ width: "7px", height: "7px", borderRadius: "50%", background: h.color, display: "inline-block" }} />
+                  {h.range}
+                </span>
+              ))}
+            </div>
+
+            {/* Estimate rows */}
+            {[
+              { jobId: "KP-07-17-26-01", customer: "Lindsay DiPietro", value: 540,  days: 2,  color: "#10b981" },
+              { jobId: "KP-06-25-26-01", customer: "—",                value: 316,  days: 6,  color: "#F26A1B" },
+              { jobId: "KP-06-15-26-01", customer: "M. Sanderson",     value: 1140, days: 13, color: "#ef4444" },
+            ].map((est, i, arr) => (
+              <div key={est.jobId} style={{
+                display: "flex", alignItems: "center", gap: "10px",
+                padding: "10px 0",
+                borderBottom: i < arr.length - 1 ? "1px solid var(--border-light)" : "none",
+              }}>
+                <span style={{ width: "8px", height: "8px", borderRadius: "50%", flexShrink: 0, background: est.color }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: "11.5px", color: "var(--text)", fontFamily: "var(--font-mono)", marginBottom: "1px" }}>
+                    {est.jobId}
+                  </p>
+                  <p style={{ fontSize: "10px", color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
+                    {est.customer} · {est.days} days out
+                  </p>
+                </div>
+                <div style={{ textAlign: "right", flexShrink: 0 }}>
+                  <p style={{ fontFamily: "var(--font-mono)", fontSize: "12px", color: est.color, fontWeight: 600 }}>
+                    ${est.value.toLocaleString()}
+                  </p>
+                  {/* Age bar */}
+                  <div style={{ width: "60px", height: "3px", background: "rgba(255,255,255,0.06)", borderRadius: "99px", overflow: "hidden", marginTop: "4px" }}>
+                    <div style={{ width: `${Math.min((est.days / 14) * 100, 100)}%`, height: "100%", background: est.color, borderRadius: "99px" }} />
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            <div style={{ marginTop: "14px", paddingTop: "12px", borderTop: "1px solid var(--border-light)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ fontSize: "11px", color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>Total at risk</span>
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: "12px", color: "#F26A1B", fontWeight: 600 }}>$1,996</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        {/* ── Bottom row ── */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
 
           {/* Jobs by type + margin */}
           <div style={{ background: "var(--bg)", border: "1px solid var(--border)", borderRadius: "10px", padding: "20px" }}>
