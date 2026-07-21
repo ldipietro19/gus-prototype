@@ -151,9 +151,9 @@ const accentColor: Record<Priority, string> = {
 };
 
 const JOB_TYPES = [
-  { label: "Water Treatment", type: "WATER_TREATMENT" },
-  { label: "Appliance Hookup", type: "Appliance Hookup" },
-  { label: "Custom Job", type: "Custom job" },
+  { label: "Water Treatment", type: "WATER_TREATMENT", href: "/jobs/1" },
+  { label: "Appliance Hookup", type: "Appliance Hookup", href: "/jobs/2" },
+  { label: "Custom Job", type: "Custom job", href: "/jobs/new" },
 ];
 
 export default function HomePage() {
@@ -196,10 +196,16 @@ export default function HomePage() {
 
   const handleStart = () => {
     const d = draft.trim();
-    if (d) {
-      router.push(`/jobs/new?d=${encodeURIComponent(d)}`);
-    } else {
+    if (!d) {
       router.push("/jobs/new");
+      return;
+    }
+    // GUS analyzes inline — go straight to the scoped job result
+    const lower = d.toLowerCase();
+    if (lower.includes("appliance") || lower.includes("dishwasher") || lower.includes("hookup") || lower.includes("washer")) {
+      router.push("/jobs/2");
+    } else {
+      router.push("/jobs/1"); // RO / water treatment / anything else → richest demo
     }
   };
 
@@ -306,7 +312,7 @@ export default function HomePage() {
           {JOB_TYPES.map((t) => (
             <button
               key={t.type}
-              onClick={() => router.push(`/jobs/new?type=${encodeURIComponent(t.type)}`)}
+              onClick={() => router.push(t.href)}
               style={{
                 background: "transparent",
                 border: "1px solid var(--border)",
