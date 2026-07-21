@@ -2,7 +2,7 @@
 
 import { use, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { mockJobs, defaultPricingSettings, loadPricingSettings, loadEstimateOverride, saveEstimateOverride } from "@/lib/mockData";
+import { mockJobs, loadDynamicJobs, defaultPricingSettings, loadPricingSettings, loadEstimateOverride, saveEstimateOverride } from "@/lib/mockData";
 import { calculateTax, formatTaxLabel, PST_PROVINCES } from "@/lib/taxEngine";
 
 type Tab = "Design" | "BOM" | "Estimate";
@@ -16,7 +16,7 @@ const PRIORITY_STYLE: Record<string, { bg: string; color: string; border: string
 export default function JobDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
-  const job = mockJobs.find(j => j.id === id);
+  const job = [...loadDynamicJobs(), ...mockJobs].find(j => j.id === id);
 
   const [tab, setTab] = useState<Tab>("Design");
   const [estimateNotes, setEstimateNotes] = useState("");

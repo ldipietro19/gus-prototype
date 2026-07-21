@@ -234,6 +234,28 @@ export function loadPricingSettings(): PricingSettings {
   return defaultPricingSettings;
 }
 
+// ── Dynamic jobs (created at runtime) ────────────────────────────────────────
+const DYNAMIC_JOBS_KEY = "gus_dynamic_jobs";
+
+export function loadDynamicJobs(): Job[] {
+  if (typeof window === "undefined") return [];
+  try {
+    return JSON.parse(localStorage.getItem(DYNAMIC_JOBS_KEY) || "[]");
+  } catch { return []; }
+}
+
+export function saveDynamicJob(job: Job): void {
+  const existing = loadDynamicJobs();
+  localStorage.setItem(DYNAMIC_JOBS_KEY, JSON.stringify([job, ...existing]));
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("gus-jobs-changed"));
+  }
+}
+
+export function getAllJobs(): Job[] {
+  return [...loadDynamicJobs(), ...mockJobs];
+}
+
 export function savePricingSettings(patch: Partial<PricingSettings>) {
   const current = loadPricingSettings();
   localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ...current, ...patch }));

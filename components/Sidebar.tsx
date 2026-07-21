@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { mockJobs, loadPricingSettings } from "@/lib/mockData";
+import { mockJobs, loadDynamicJobs, loadPricingSettings } from "@/lib/mockData";
 
 const NAV = [
   {
@@ -49,6 +49,7 @@ export default function Sidebar({ onOpenSettings }: { onOpenSettings?: () => voi
   const [width, setWidth] = useState(230);
   const [collapsed, setCollapsed] = useState(false);
   const [openBuckets, setOpenBuckets] = useState<Record<string, boolean>>({ active: true, won: false, lost: false });
+  const [allJobs, setAllJobs] = useState([...loadDynamicJobs(), ...mockJobs]);
   const [responses, setResponses] = useState<Record<string, string>>({});
   const [companyName, setCompanyName] = useState("LC Plumbing Co");
   const pathname = usePathname();
@@ -67,14 +68,20 @@ export default function Sidebar({ onOpenSettings }: { onOpenSettings?: () => voi
       const s = loadPricingSettings();
       if (s.companyName) setCompanyName(s.companyName);
     };
+    const refreshJobs = () => {
+      setAllJobs([...loadDynamicJobs(), ...mockJobs]);
+    };
     loadResponses();
     loadSettings();
+    refreshJobs();
     window.addEventListener("storage", loadResponses);
     window.addEventListener("gus-settings-changed", loadSettings);
+    window.addEventListener("gus-jobs-changed", refreshJobs);
     document.addEventListener("visibilitychange", loadResponses);
     return () => {
       window.removeEventListener("storage", loadResponses);
       window.removeEventListener("gus-settings-changed", loadSettings);
+      window.removeEventListener("gus-jobs-changed", refreshJobs);
       document.removeEventListener("visibilitychange", loadResponses);
     };
   }, []);
@@ -214,7 +221,7 @@ export default function Sidebar({ onOpenSettings }: { onOpenSettings?: () => voi
             }}>// Jobs</p>
 
             {BUCKETS.map(bucket => {
-              const jobs = mockJobs.filter(j => bucket.statuses.includes(effectiveStatus(j)));
+              const jobs = allJobs.filter(j => bucket.statuses.includes(effectiveStatus(j)));
               const visible = openBuckets[bucket.key] ? jobs.slice(0, CAP) : [];
               const overflow = jobs.length > CAP;
 
