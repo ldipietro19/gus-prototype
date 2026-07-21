@@ -1,7 +1,8 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { mockJobs, loadPricingSettings, defaultPricingSettings } from "@/lib/mockData";
+import { useRouter } from "next/navigation";
+import { mockJobs, loadPricingSettings } from "@/lib/mockData";
 
 type Priority = "high" | "mid" | "low";
 
@@ -113,10 +114,19 @@ const accentColor: Record<Priority, string> = {
   low: "#3D6480",
 };
 
+const JOB_TYPES = [
+  { label: "Water Treatment", type: "WATER_TREATMENT" },
+  { label: "Appliance Hookup", type: "Appliance Hookup" },
+  { label: "Custom Job", type: "Custom job" },
+];
+
 export default function HomePage() {
+  const router = useRouter();
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const [mounted, setMounted] = useState(false);
   const [firstName, setFirstName] = useState("Kelsea");
   const [responses, setResponses] = useState<Record<string, string>>({});
+  const [draft, setDraft] = useState("");
 
   useEffect(() => {
     const s = loadPricingSettings();
@@ -131,16 +141,8 @@ export default function HomePage() {
 
   const now = new Date();
   const greeting = getGreeting(now.getHours());
-  const dayName = now
-    .toLocaleDateString("en-CA", { weekday: "long" })
-    .toUpperCase();
-  const dateStr = now
-    .toLocaleDateString("en-CA", {
-      month: "long",
-      day: "numeric",
-      year: "numeric",
-    })
-    .toUpperCase();
+  const dayName = now.toLocaleDateString("en-CA", { weekday: "long" }).toUpperCase();
+  const dateStr = now.toLocaleDateString("en-CA", { month: "long", day: "numeric", year: "numeric" }).toUpperCase();
 
   const insights = deriveInsights(responses);
 
@@ -153,25 +155,13 @@ export default function HomePage() {
   const activeJobs = mockJobs.filter((j) =>
     ["Draft", "Sent"].includes(effectiveStatus(j))
   );
-  const pipelineValue = mockJobs
-    .filter((j) => effectiveStatus(j) === "Sent" && j.value)
-    .reduce((sum, j) => sum + (j.value ?? 0), 0);
-  const wonValue = mockJobs
-    .filter((j) => effectiveStatus(j) === "Won" && j.value)
-    .reduce((sum, j) => sum + (j.value ?? 0), 0);
-  const quotedJobs = mockJobs.filter((j) => j.hasQuote);
-  const respondedJobs = quotedJobs.filter((j) => responses[j.id]);
-  const responseRate =
-    quotedJobs.length > 0
-      ? Math.round((respondedJobs.length / quotedJobs.length) * 100)
-      : 0;
 
-  const metrics = [
-    { label: "Active Jobs", value: activeJobs.length.toString(), sub: "draft + sent" },
-    { label: "Pipeline", value: pipelineValue > 0 ? `$${pipelineValue.toLocaleString()}` : "—", sub: "estimates out" },
-    { label: "Won — All Time", value: wonValue > 0 ? `$${wonValue.toLocaleString()}` : "—", sub: "closed" },
-    { label: "Response Rate", value: `${responseRate}%`, sub: "estimates accepted" },
-  ];
+  const handleStart = () => {
+    if (draft.trim()) {
+      localStorage.setItem("gus_new_job_prompt", draft.trim());
+    }
+    router.push("/jobs");
+  };
 
   const statusDot: Record<string, React.CSSProperties> = {
     Draft: { border: "1.5px dashed var(--text-muted)" },
@@ -181,261 +171,254 @@ export default function HomePage() {
   };
 
   return (
-    <div style={{ padding: "48px 40px 80px", maxWidth: "1080px" }}>
+    <div style={{ padding: "48px 40px 80px", maxWidth: "760px" }}>
+
       {/* Date eyebrow */}
-      <p
-        style={{
-          fontFamily: "var(--font-mono)",
-          fontSize: "10px",
-          color: "var(--teal)",
-          letterSpacing: "0.2em",
-          textTransform: "uppercase",
-          marginBottom: "28px",
-        }}
-      >
+      <p style={{
+        fontFamily: "var(--font-mono)",
+        fontSize: "10px",
+        color: "var(--teal)",
+        letterSpacing: "0.2em",
+        textTransform: "uppercase",
+        marginBottom: "20px",
+      }}>
         // {dayName} · {dateStr}
       </p>
 
-      {/* Greeting + headline */}
-      <div style={{ marginBottom: "52px" }}>
-        <h1
-          style={{
-            fontFamily: "var(--font-bebas)",
-            fontSize: "clamp(56px, 8vw, 100px)",
-            letterSpacing: "0.02em",
-            lineHeight: 0.9,
-            color: "var(--text)",
-          }}
-        >
-          {greeting}
-        </h1>
-        <h1
-          style={{
-            fontFamily: "var(--font-bebas)",
-            fontSize: "clamp(56px, 8vw, 100px)",
-            letterSpacing: "0.02em",
-            lineHeight: 0.9,
-            color: "var(--orange)",
-            marginBottom: "28px",
-          }}
-        >
-          {mounted ? firstName : "KELSEA"}.
-        </h1>
+      {/* Greeting */}
+      <h1 style={{
+        fontFamily: "var(--font-bebas)",
+        fontSize: "clamp(40px, 5.5vw, 68px)",
+        letterSpacing: "0.03em",
+        lineHeight: 1,
+        color: "var(--text)",
+        marginBottom: "4px",
+      }}>
+        {greeting}
+      </h1>
+      <h1 style={{
+        fontFamily: "var(--font-bebas)",
+        fontSize: "clamp(40px, 5.5vw, 68px)",
+        letterSpacing: "0.03em",
+        lineHeight: 1,
+        color: "var(--orange)",
+        marginBottom: "40px",
+      }}>
+        {mounted ? firstName : "KELSEA"}.
+      </h1>
 
-        <div
+      {/* New job input */}
+      <div style={{
+        background: "var(--bg)",
+        border: "1px solid rgba(255,255,255,0.12)",
+        borderRadius: "2px",
+        marginBottom: "12px",
+        position: "relative",
+      }}>
+        <textarea
+          ref={inputRef}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              handleStart();
+            }
+          }}
+          placeholder="Describe a new job... (e.g. RO install for new customer, no existing shutoff)"
+          rows={3}
           style={{
-            height: "1px",
-            background:
-              "linear-gradient(90deg, rgba(26,191,191,0.55), transparent)",
-            maxWidth: "280px",
-            marginBottom: "22px",
+            width: "100%",
+            background: "transparent",
+            border: "none",
+            outline: "none",
+            resize: "none",
+            padding: "16px 52px 16px 18px",
+            fontSize: "14px",
+            color: "var(--text)",
+            fontFamily: "var(--font-sans)",
+            lineHeight: 1.6,
           }}
         />
-
-        <h2
+        <button
+          onClick={handleStart}
           style={{
-            fontFamily: "var(--font-bebas)",
-            fontSize: "clamp(24px, 3.2vw, 42px)",
-            letterSpacing: "0.06em",
-            color: "var(--text-secondary)",
-            lineHeight: 1.05,
-          }}
-        >
-          HERE&apos;S WHERE
-          <br />
-          THINGS STAND.
-        </h2>
-      </div>
-
-      {/* Insight cards */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(3, 1fr)",
-          gap: "14px",
-          marginBottom: "32px",
-        }}
-      >
-        {insights.map((insight, i) => (
-          <div
-            key={i}
-            style={{
-              background: "var(--bg)",
-              border: "1px solid var(--border)",
-              borderLeft: `3px solid ${accentColor[insight.priority]}`,
-              padding: "22px 20px",
-              display: "flex",
-              flexDirection: "column",
-              gap: "7px",
-            }}
-          >
-            <p
-              style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: "9px",
-                letterSpacing: "0.18em",
-                textTransform: "uppercase",
-                color: accentColor[insight.priority],
-                margin: 0,
-              }}
-            >
-              {insight.eyebrow}
-            </p>
-            <p
-              style={{
-                fontFamily: "var(--font-bebas)",
-                fontSize: "20px",
-                letterSpacing: "0.04em",
-                color: "var(--text)",
-                margin: 0,
-                lineHeight: 1.1,
-              }}
-            >
-              {insight.title}
-            </p>
-            <p
-              style={{
-                fontSize: "12.5px",
-                color: "var(--text-secondary)",
-                lineHeight: 1.65,
-                flex: 1,
-                margin: 0,
-              }}
-            >
-              {insight.body}
-            </p>
-            <Link
-              href={insight.href}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "4px",
-                fontSize: "11px",
-                fontFamily: "var(--font-mono)",
-                color: accentColor[insight.priority],
-                textDecoration: "none",
-                letterSpacing: "0.08em",
-                textTransform: "uppercase",
-                marginTop: "5px",
-              }}
-            >
-              {insight.cta} →
-            </Link>
-          </div>
-        ))}
-      </div>
-
-      {/* Metrics row */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(4, 1fr)",
-          border: "1px solid var(--border)",
-          marginBottom: "40px",
-          overflow: "hidden",
-        }}
-      >
-        {metrics.map((m, i) => (
-          <div
-            key={m.label}
-            style={{
-              padding: "18px 20px",
-              background: "var(--bg)",
-              borderRight: i < 3 ? "1px solid var(--border)" : "none",
-            }}
-          >
-            <p
-              style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: "9px",
-                letterSpacing: "0.16em",
-                textTransform: "uppercase",
-                color: "var(--text-muted)",
-                margin: "0 0 5px",
-              }}
-            >
-              {m.label}
-            </p>
-            <p
-              style={{
-                fontFamily: "var(--font-bebas)",
-                fontSize: "30px",
-                letterSpacing: "0.04em",
-                color: "var(--teal)",
-                margin: 0,
-                lineHeight: 1,
-              }}
-            >
-              {m.value}
-            </p>
-            <p
-              style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: "9px",
-                color: "var(--text-muted)",
-                margin: "3px 0 0",
-                letterSpacing: "0.08em",
-                textTransform: "uppercase",
-              }}
-            >
-              {m.sub}
-            </p>
-          </div>
-        ))}
-      </div>
-
-      {/* Active jobs list */}
-      <div>
-        <div
-          style={{
+            position: "absolute",
+            right: "12px",
+            bottom: "12px",
+            width: "32px",
+            height: "32px",
+            borderRadius: "50%",
+            background: draft.trim() ? "var(--orange)" : "rgba(255,255,255,0.07)",
+            border: "none",
+            cursor: "pointer",
             display: "flex",
             alignItems: "center",
-            justifyContent: "space-between",
-            marginBottom: "12px",
+            justifyContent: "center",
+            transition: "background 0.15s",
+            flexShrink: 0,
           }}
         >
-          <p
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={draft.trim() ? "white" : "#3D6480"} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="22" y1="2" x2="11" y2="13" />
+            <polygon points="22 2 15 22 11 13 2 9 22 2" />
+          </svg>
+        </button>
+      </div>
+
+      {/* Job type chips */}
+      <div style={{ display: "flex", gap: "8px", marginBottom: "48px", flexWrap: "wrap" }}>
+        {JOB_TYPES.map((t) => (
+          <button
+            key={t.type}
+            onClick={() => router.push("/jobs")}
             style={{
+              background: "transparent",
+              border: "1px solid var(--border)",
+              color: "var(--text-muted)",
               fontFamily: "var(--font-mono)",
-              fontSize: "9px",
-              color: "var(--teal)",
+              fontSize: "10px",
+              letterSpacing: "0.1em",
               textTransform: "uppercase",
-              letterSpacing: "0.2em",
-              margin: 0,
+              padding: "6px 12px",
+              cursor: "pointer",
+              transition: "border-color 0.1s, color 0.1s",
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLElement).style.borderColor = "var(--orange)";
+              (e.currentTarget as HTMLElement).style.color = "var(--orange)";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLElement).style.borderColor = "var(--border)";
+              (e.currentTarget as HTMLElement).style.color = "var(--text-muted)";
             }}
           >
+            + {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* GUS insights */}
+      <div style={{ marginBottom: "40px" }}>
+        <p style={{
+          fontFamily: "var(--font-mono)",
+          fontSize: "9px",
+          color: "var(--teal)",
+          textTransform: "uppercase",
+          letterSpacing: "0.2em",
+          marginBottom: "14px",
+        }}>
+          // GUS Says
+        </p>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+          {insights.map((insight, i) => (
+            <Link
+              key={i}
+              href={insight.href}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "16px",
+                background: "var(--bg)",
+                border: "1px solid var(--border)",
+                borderLeft: `3px solid ${accentColor[insight.priority]}`,
+                padding: "16px 20px",
+                textDecoration: "none",
+                transition: "background 0.1s",
+              }}
+              onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.025)")}
+              onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = "var(--bg)")}
+            >
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: "9px",
+                  letterSpacing: "0.16em",
+                  textTransform: "uppercase",
+                  color: accentColor[insight.priority],
+                  margin: "0 0 4px",
+                }}>
+                  {insight.eyebrow}
+                </p>
+                <p style={{
+                  fontFamily: "var(--font-bebas)",
+                  fontSize: "18px",
+                  letterSpacing: "0.04em",
+                  color: "var(--text)",
+                  margin: "0 0 3px",
+                  lineHeight: 1.1,
+                }}>
+                  {insight.title}
+                </p>
+                <p style={{
+                  fontSize: "12px",
+                  color: "var(--text-secondary)",
+                  margin: 0,
+                  lineHeight: 1.6,
+                }}>
+                  {insight.body}
+                </p>
+              </div>
+              <span style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: "10px",
+                color: accentColor[insight.priority],
+                textTransform: "uppercase",
+                letterSpacing: "0.06em",
+                flexShrink: 0,
+                whiteSpace: "nowrap",
+              }}>
+                {insight.cta} →
+              </span>
+            </Link>
+          ))}
+        </div>
+      </div>
+
+      {/* Active jobs — compact */}
+      <div>
+        <div style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          marginBottom: "10px",
+        }}>
+          <p style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: "9px",
+            color: "var(--teal)",
+            textTransform: "uppercase",
+            letterSpacing: "0.2em",
+            margin: 0,
+          }}>
             // Active Jobs
           </p>
-          <Link
-            href="/jobs"
-            style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: "9px",
-              color: "var(--text-muted)",
-              textTransform: "uppercase",
-              letterSpacing: "0.1em",
-              textDecoration: "none",
-            }}
-          >
+          <Link href="/jobs" style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: "9px",
+            color: "var(--text-muted)",
+            textTransform: "uppercase",
+            letterSpacing: "0.1em",
+            textDecoration: "none",
+          }}>
             View all →
           </Link>
         </div>
 
         <div style={{ border: "1px solid var(--border)", overflow: "hidden" }}>
           {activeJobs.length === 0 && (
-            <div
-              style={{
-                padding: "24px",
-                fontSize: "13px",
-                color: "var(--text-muted)",
-                textAlign: "center",
-                fontFamily: "var(--font-mono)",
-              }}
-            >
-              No active jobs right now.
+            <div style={{
+              padding: "20px",
+              fontSize: "12px",
+              color: "var(--text-muted)",
+              textAlign: "center",
+              fontFamily: "var(--font-mono)",
+            }}>
+              No active jobs. Start one above.
             </div>
           )}
-          {activeJobs.slice(0, 7).map((job, i) => {
+          {activeJobs.slice(0, 6).map((job, i) => {
             const eff = effectiveStatus(job);
             return (
               <Link
@@ -445,89 +428,39 @@ export default function HomePage() {
                   display: "flex",
                   alignItems: "center",
                   gap: "12px",
-                  padding: "11px 18px",
-                  borderBottom:
-                    i < Math.min(activeJobs.length, 7) - 1
-                      ? "1px solid var(--border-light)"
-                      : "none",
+                  padding: "10px 16px",
+                  borderBottom: i < Math.min(activeJobs.length, 6) - 1 ? "1px solid var(--border-light)" : "none",
                   textDecoration: "none",
                   background: "var(--bg)",
                   transition: "background 0.1s",
                 }}
-                onMouseEnter={(e) =>
-                  ((e.currentTarget as HTMLElement).style.background =
-                    "rgba(255,255,255,0.03)")
-                }
-                onMouseLeave={(e) =>
-                  ((e.currentTarget as HTMLElement).style.background =
-                    "var(--bg)")
-                }
+                onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.03)")}
+                onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = "var(--bg)")}
               >
-                <span
-                  style={{
-                    width: "7px",
-                    height: "7px",
-                    borderRadius: "50%",
-                    flexShrink: 0,
-                    ...(statusDot[eff] ?? { background: "var(--text-muted)" }),
-                  }}
-                />
-                <span
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: "11px",
-                    color: "var(--text-muted)",
-                    width: "136px",
-                    flexShrink: 0,
-                  }}
-                >
+                <span style={{
+                  width: "6px", height: "6px", borderRadius: "50%", flexShrink: 0,
+                  ...(statusDot[eff] ?? { background: "var(--text-muted)" }),
+                }} />
+                <span style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: "10px",
+                  color: "var(--text-muted)",
+                  width: "128px",
+                  flexShrink: 0,
+                }}>
                   {job.jobId}
                 </span>
-                <span
-                  style={{
-                    fontSize: "13px",
-                    color: "var(--text-secondary)",
-                    flex: 1,
-                  }}
-                >
+                <span style={{ fontSize: "12.5px", color: "var(--text-secondary)", flex: 1 }}>
                   {job.customer && job.customer !== "new" ? job.customer : "—"}
                 </span>
-                <span
-                  style={{
-                    fontSize: "11px",
-                    fontFamily: "var(--font-mono)",
-                    color: "var(--text-muted)",
-                  }}
-                >
+                <span style={{
+                  fontSize: "10px",
+                  fontFamily: "var(--font-mono)",
+                  color: "var(--text-muted)",
+                }}>
                   {job.jobType}
                 </span>
-                {job.value ? (
-                  <span
-                    style={{
-                      fontSize: "12px",
-                      fontFamily: "var(--font-mono)",
-                      color:
-                        eff === "Won"
-                          ? "var(--green)"
-                          : "var(--text-secondary)",
-                      minWidth: "58px",
-                      textAlign: "right",
-                    }}
-                  >
-                    ${job.value.toLocaleString()}
-                  </span>
-                ) : (
-                  <span style={{ minWidth: "58px" }} />
-                )}
-                <span
-                  style={{
-                    fontSize: "11px",
-                    color: "var(--orange)",
-                    marginLeft: "8px",
-                  }}
-                >
-                  →
-                </span>
+                <span style={{ fontSize: "11px", color: "var(--orange)", marginLeft: "10px" }}>→</span>
               </Link>
             );
           })}
