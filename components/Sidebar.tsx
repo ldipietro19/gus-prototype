@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { mockJobs } from "@/lib/mockData";
+import { mockJobs, loadPricingSettings } from "@/lib/mockData";
 
 const NAV = [
   {
@@ -46,24 +46,31 @@ export default function Sidebar({ onOpenSettings }: { onOpenSettings?: () => voi
   const [collapsed, setCollapsed] = useState(false);
   const [openBuckets, setOpenBuckets] = useState<Record<string, boolean>>({ active: true, won: false, lost: false });
   const [responses, setResponses] = useState<Record<string, string>>({});
+  const [companyName, setCompanyName] = useState("LC Plumbing Co");
   const pathname = usePathname();
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
 
   // Sync with localStorage responses (cross-tab + same-tab)
   useEffect(() => {
-    const load = () => {
+    const loadResponses = () => {
       const r = JSON.parse(localStorage.getItem("gus_responses") || "{}");
       setResponses(r);
-      // Auto-open Won/Lost buckets if any job moved there
       if (Object.values(r).includes("accepted")) setOpenBuckets(b => ({ ...b, won: true }));
       if (Object.values(r).includes("declined")) setOpenBuckets(b => ({ ...b, lost: true }));
     };
-    load();
-    window.addEventListener("storage", load);
-    document.addEventListener("visibilitychange", load);
+    const loadSettings = () => {
+      const s = loadPricingSettings();
+      if (s.companyName) setCompanyName(s.companyName);
+    };
+    loadResponses();
+    loadSettings();
+    window.addEventListener("storage", loadResponses);
+    window.addEventListener("gus-settings-changed", loadSettings);
+    document.addEventListener("visibilitychange", loadResponses);
     return () => {
-      window.removeEventListener("storage", load);
-      document.removeEventListener("visibilitychange", load);
+      window.removeEventListener("storage", loadResponses);
+      window.removeEventListener("gus-settings-changed", loadSettings);
+      document.removeEventListener("visibilitychange", loadResponses);
     };
   }, []);
 
@@ -309,9 +316,9 @@ export default function Sidebar({ onOpenSettings }: { onOpenSettings?: () => voi
           border: "1px solid rgba(242,106,27,0.3)",
           display: "inline-flex", alignItems: "center", justifyContent: "center",
           fontSize: "10px", fontWeight: 700, color: "var(--orange)",
-        }}>L</span>
+        }}>{companyName.charAt(0).toUpperCase()}</span>
         {!collapsed && (
-          <span style={{ flex: 1 }}>LC Plumbing Co</span>
+          <span style={{ flex: 1 }}>{companyName}</span>
         )}
         {!collapsed && (
           <i className="ti ti-settings" style={{ fontSize: "13px", opacity: 0.4 }} />

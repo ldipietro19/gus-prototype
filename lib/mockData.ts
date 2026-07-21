@@ -237,6 +237,10 @@ export function loadPricingSettings(): PricingSettings {
 export function savePricingSettings(patch: Partial<PricingSettings>) {
   const current = loadPricingSettings();
   localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ...current, ...patch }));
+  // Notify same-tab listeners (storage event only fires cross-tab)
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("gus-settings-changed"));
+  }
 }
 
 export const mockCustomers = [

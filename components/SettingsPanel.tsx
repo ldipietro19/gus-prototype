@@ -264,11 +264,17 @@ export default function SettingsPanel() {
             <div style={sec}>
               <SectionTitle>Company details</SectionTitle>
               <Field label="Company name">
-                <input type="text" value={companyName} onChange={e => setCompanyName(e.target.value)} style={inp} />
+                <input type="text" value={companyName}
+                  onChange={e => setCompanyName(e.target.value)}
+                  onBlur={() => savePricingSettings({ companyName, gstNumber, phone, email: bizEmail })}
+                  style={inp} />
               </Field>
               <div style={row2}>
                 <Field label="GST / HST number">
-                  <input type="text" value={gstNumber} onChange={e => setGstNumber(e.target.value)} style={inp} />
+                  <input type="text" value={gstNumber}
+                    onChange={e => setGstNumber(e.target.value)}
+                    onBlur={() => savePricingSettings({ companyName, gstNumber, phone, email: bizEmail })}
+                    style={inp} />
                 </Field>
                 <Field label="WCB / WorkSafe number" optional>
                   <input type="text" placeholder="e.g. 12345678" style={inp} />
@@ -293,10 +299,16 @@ export default function SettingsPanel() {
               </div>
               <div style={row2}>
                 <Field label="Phone">
-                  <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} style={inp} />
+                  <input type="tel" value={phone}
+                    onChange={e => setPhone(e.target.value)}
+                    onBlur={() => savePricingSettings({ companyName, gstNumber, phone, email: bizEmail })}
+                    style={inp} />
                 </Field>
                 <Field label="Email">
-                  <input type="email" value={bizEmail} onChange={e => setBizEmail(e.target.value)} style={inp} />
+                  <input type="email" value={bizEmail}
+                    onChange={e => setBizEmail(e.target.value)}
+                    onBlur={() => savePricingSettings({ companyName, gstNumber, phone, email: bizEmail })}
+                    style={inp} />
                 </Field>
               </div>
               <Field label="Website" optional><input type="text" placeholder="https://repplumbing.ca" style={inp} /></Field>
