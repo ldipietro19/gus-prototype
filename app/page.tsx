@@ -195,10 +195,12 @@ export default function HomePage() {
   );
 
   const handleStart = () => {
-    if (draft.trim()) {
-      localStorage.setItem("gus_new_job_prompt", draft.trim());
+    const d = draft.trim();
+    if (d) {
+      router.push(`/jobs/new?d=${encodeURIComponent(d)}`);
+    } else {
+      router.push("/jobs/new");
     }
-    router.push("/jobs");
   };
 
   const statusDot: Record<string, React.CSSProperties> = {
@@ -304,7 +306,7 @@ export default function HomePage() {
           {JOB_TYPES.map((t) => (
             <button
               key={t.type}
-              onClick={() => router.push("/jobs")}
+              onClick={() => router.push(`/jobs/new?type=${encodeURIComponent(t.type)}`)}
               style={{
                 background: "transparent",
                 border: "1px solid var(--border)",
