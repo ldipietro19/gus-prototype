@@ -156,6 +156,8 @@ export interface PricingSettings {
   showWarranty: boolean;
   pricingBufferFrom: number;
   pricingBufferTo: number;
+  // Quote format
+  quoteDetailLevel: "detailed" | "summary" | "clean";
 }
 
 export const defaultPricingSettings: PricingSettings = {
@@ -181,6 +183,7 @@ export const defaultPricingSettings: PricingSettings = {
   showWarranty: true,
   pricingBufferFrom: 5,
   pricingBufferTo: 10,
+  quoteDetailLevel: "detailed",
 };
 
 const SETTINGS_KEY = "gus_settings";

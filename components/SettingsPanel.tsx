@@ -141,6 +141,7 @@ export default function SettingsPanel() {
   const [paymentTerms, setPaymentTerms] = useState(defaultPricingSettings.paymentTerms);
   const [depositPercent, setDepositPercent] = useState(defaultPricingSettings.depositPercent);
   const [depositThreshold, setDepositThreshold] = useState(defaultPricingSettings.depositThreshold);
+  const [quoteDetailLevel, setQuoteDetailLevel] = useState<"detailed" | "summary" | "clean">(defaultPricingSettings.quoteDetailLevel);
   const [termsText, setTermsText] = useState(defaultPricingSettings.termsText);
   const [labourWarranty, setLabourWarranty] = useState(defaultPricingSettings.labourWarranty);
   const [partsWarranty, setPartsWarranty] = useState(defaultPricingSettings.partsWarranty);
@@ -164,6 +165,7 @@ export default function SettingsPanel() {
     setPaymentTerms(s.paymentTerms);
     setDepositPercent(s.depositPercent);
     setDepositThreshold(s.depositThreshold);
+    setQuoteDetailLevel(s.quoteDetailLevel ?? "detailed");
     setTermsText(s.termsText);
     setLabourWarranty(s.labourWarranty);
     setPartsWarranty(s.partsWarranty);
@@ -548,7 +550,31 @@ export default function SettingsPanel() {
         {tab === "delivery" && (
           <div>
             <h1 style={{ fontSize: "20px", fontWeight: 500, color: "var(--text)", marginBottom: "6px" }}>Estimate delivery</h1>
-            <p style={{ fontSize: "13px", color: "var(--text-muted)", marginBottom: "28px", lineHeight: 1.6 }}>Default email template used when sending estimates to customers.</p>
+            <p style={{ fontSize: "13px", color: "var(--text-muted)", marginBottom: "28px", lineHeight: 1.6 }}>Default format and email template used when sending estimates to customers.</p>
+
+            <div style={sec}>
+              <SectionTitle>Quote format</SectionTitle>
+              <p style={{ fontSize: "12.5px", color: "var(--text-muted)", marginBottom: "14px", lineHeight: 1.6 }}>Controls how pricing is shown to customers on the estimate.</p>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "10px" }}>
+                {([
+                  { id: "detailed" as const, label: "Detailed", desc: "Full line items — every part and labour hour visible" },
+                  { id: "summary" as const, label: "Summary", desc: "Category totals with a brief description" },
+                  { id: "clean" as const, label: "Clean", desc: "Single price block — no breakdown shown" },
+                ]).map(opt => (
+                  <div key={opt.id} onClick={() => setQuoteDetailLevel(opt.id)}
+                    style={{
+                      border: `2px solid ${quoteDetailLevel === opt.id ? "var(--orange)" : "rgba(255,255,255,0.12)"}`,
+                      borderRadius: "10px", padding: "14px", cursor: "pointer",
+                      background: quoteDetailLevel === opt.id ? "rgba(242,106,27,0.08)" : "var(--bg-page)",
+                      transition: "border-color 0.15s, background 0.15s",
+                    }}>
+                    <div style={{ fontSize: "13.5px", fontWeight: 500, color: quoteDetailLevel === opt.id ? "var(--orange)" : "var(--text)", marginBottom: "4px" }}>{opt.label}</div>
+                    <div style={{ fontSize: "11.5px", color: "var(--text-muted)", lineHeight: 1.5 }}>{opt.desc}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
             <div style={sec}>
               <SectionTitle>Email template</SectionTitle>
               <Field label="Default subject line"><input type="text" defaultValue="Your estimate from Reputation Plumbing & Heating — RPH-E{number}" style={inp} /></Field>
@@ -564,7 +590,7 @@ export default function SettingsPanel() {
                 <Field label="Reply-to email"><input type="email" defaultValue="kelsea@reputationplumbing.ca" style={inp} /></Field>
               </div>
             </div>
-            <SaveBar />
+            <SaveBar onSave={() => savePricingSettings({ quoteDetailLevel })} />
           </div>
         )}
 
