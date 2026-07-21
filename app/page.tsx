@@ -15,11 +15,47 @@ interface Insight {
   href: string;
 }
 
-function getGreeting(hour: number) {
-  if (hour < 12) return "GOOD MORNING,";
-  if (hour < 17) return "GOOD AFTERNOON,";
-  if (hour < 22) return "GOOD EVENING,";
-  return "WORKING LATE,";
+const GREETING_POOLS: Record<string, string[]> = {
+  morning: [
+    "GOOD MORNING,",
+    "BACK AT IT,",
+    "RISE AND PRICE,",
+    "LET'S GET AFTER IT,",
+    "EARLY BIRD,",
+  ],
+  afternoon: [
+    "GOOD AFTERNOON,",
+    "AFTERNOON,",
+    "MIDDAY PUSH,",
+    "STILL GRINDING,",
+    "BACK AT IT,",
+  ],
+  evening: [
+    "GOOD EVENING,",
+    "EVENING,",
+    "LATE PUSH,",
+    "FINISHING STRONG,",
+    "STILL AT IT,",
+  ],
+  night: [
+    "WORKING LATE,",
+    "NIGHT OWL,",
+    "STILL AT IT,",
+    "BURNING MIDNIGHT OIL,",
+    "GRINDING,",
+  ],
+};
+
+function pickGreeting(hour: number): string {
+  const pool =
+    hour < 12
+      ? GREETING_POOLS.morning
+      : hour < 17
+      ? GREETING_POOLS.afternoon
+      : hour < 22
+      ? GREETING_POOLS.evening
+      : GREETING_POOLS.night;
+  return pool[Math.floor(Math.random() * pool.length)];
 }
 
 function deriveInsights(responses: Record<string, string>): Insight[] {
@@ -125,10 +161,13 @@ export default function HomePage() {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const [mounted, setMounted] = useState(false);
   const [firstName, setFirstName] = useState("Kelsea");
+  const [greeting, setGreeting] = useState("BACK AT IT,");
   const [responses, setResponses] = useState<Record<string, string>>({});
   const [draft, setDraft] = useState("");
 
   useEffect(() => {
+    const now = new Date();
+    setGreeting(pickGreeting(now.getHours()));
     const s = loadPricingSettings();
     if (s.email) {
       const raw = s.email.split("@")[0].split(/[._-]/)[0];
@@ -140,7 +179,6 @@ export default function HomePage() {
   }, []);
 
   const now = new Date();
-  const greeting = getGreeting(now.getHours());
   const dayName = now.toLocaleDateString("en-CA", { weekday: "long" }).toUpperCase();
   const dateStr = now.toLocaleDateString("en-CA", { month: "long", day: "numeric", year: "numeric" }).toUpperCase();
 
@@ -171,48 +209,43 @@ export default function HomePage() {
   };
 
   return (
-    <div style={{ padding: "48px 40px 80px", maxWidth: "760px" }}>
+    <div style={{ padding: "64px 40px 80px" }}>
 
-      {/* Date eyebrow */}
-      <p style={{
-        fontFamily: "var(--font-mono)",
-        fontSize: "10px",
-        color: "var(--teal)",
-        letterSpacing: "0.2em",
-        textTransform: "uppercase",
-        marginBottom: "24px",
-      }}>
-        // {dayName} · {dateStr}
-      </p>
+      {/* Centered hero area */}
+      <div style={{ maxWidth: "600px", margin: "0 auto 64px" }}>
 
-      {/* Greeting — one line */}
-      <h1 style={{
-        fontFamily: "var(--font-bebas)",
-        fontSize: "clamp(38px, 5vw, 62px)",
-        letterSpacing: "0.03em",
-        lineHeight: 1,
-        marginBottom: "10px",
-      }}>
-        <span style={{ color: "var(--text)" }}>{greeting} </span>
-        <span style={{ color: "var(--orange)" }}>{mounted ? firstName : "Kelsea"}.</span>
-      </h1>
+        {/* Date eyebrow */}
+        <p style={{
+          fontFamily: "var(--font-mono)",
+          fontSize: "9px",
+          color: "var(--text-muted)",
+          letterSpacing: "0.18em",
+          textTransform: "uppercase",
+          marginBottom: "28px",
+          textAlign: "center",
+        }}>
+          // {dayName} · {dateStr}
+        </p>
 
-      {/* Sub-line */}
-      <p style={{
-        fontSize: "15px",
-        color: "var(--text-secondary)",
-        marginBottom: "20px",
-        lineHeight: 1.5,
-      }}>
-        What are we working on today?
-      </p>
+        {/* Greeting — one line, centered */}
+        <h1 style={{
+          fontFamily: "var(--font-bebas)",
+          fontSize: "clamp(44px, 6vw, 72px)",
+          letterSpacing: "0.03em",
+          lineHeight: 1,
+          marginBottom: "32px",
+          textAlign: "center",
+        }}>
+          <span style={{ color: "var(--text)" }}>{greeting} </span>
+          <span style={{ color: "var(--orange)" }}>{mounted ? firstName : "Kelsea"}.</span>
+        </h1>
 
       {/* New job input */}
       <div style={{
         background: "var(--bg)",
         border: "1px solid rgba(255,255,255,0.12)",
         borderRadius: "2px",
-        marginBottom: "12px",
+        marginBottom: "16px",
         position: "relative",
       }}>
         <textarea
@@ -225,7 +258,7 @@ export default function HomePage() {
               handleStart();
             }
           }}
-          placeholder="Describe a new job... (e.g. RO install for new customer, no existing shutoff)"
+          placeholder="What's the job? (e.g. RO install for new customer, no existing shutoff)"
           rows={3}
           style={{
             width: "100%",
@@ -233,8 +266,8 @@ export default function HomePage() {
             border: "none",
             outline: "none",
             resize: "none",
-            padding: "16px 52px 16px 18px",
-            fontSize: "14px",
+            padding: "18px 56px 18px 20px",
+            fontSize: "15px",
             color: "var(--text)",
             fontFamily: "var(--font-sans)",
             lineHeight: 1.6,
@@ -267,39 +300,42 @@ export default function HomePage() {
       </div>
 
       {/* Job type chips */}
-      <div style={{ display: "flex", gap: "8px", marginBottom: "48px", flexWrap: "wrap" }}>
-        {JOB_TYPES.map((t) => (
-          <button
-            key={t.type}
-            onClick={() => router.push("/jobs")}
-            style={{
-              background: "transparent",
-              border: "1px solid var(--border)",
-              color: "var(--text-muted)",
-              fontFamily: "var(--font-mono)",
-              fontSize: "10px",
-              letterSpacing: "0.1em",
-              textTransform: "uppercase",
-              padding: "6px 12px",
-              cursor: "pointer",
-              transition: "border-color 0.1s, color 0.1s",
-            }}
-            onMouseEnter={(e) => {
-              (e.currentTarget as HTMLElement).style.borderColor = "var(--orange)";
-              (e.currentTarget as HTMLElement).style.color = "var(--orange)";
-            }}
-            onMouseLeave={(e) => {
-              (e.currentTarget as HTMLElement).style.borderColor = "var(--border)";
-              (e.currentTarget as HTMLElement).style.color = "var(--text-muted)";
-            }}
-          >
-            + {t.label}
-          </button>
-        ))}
-      </div>
+        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", justifyContent: "center" }}>
+          {JOB_TYPES.map((t) => (
+            <button
+              key={t.type}
+              onClick={() => router.push("/jobs")}
+              style={{
+                background: "transparent",
+                border: "1px solid var(--border)",
+                color: "var(--text-muted)",
+                fontFamily: "var(--font-mono)",
+                fontSize: "10px",
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+                padding: "7px 14px",
+                cursor: "pointer",
+                transition: "border-color 0.15s, color 0.15s",
+                borderRadius: "2px",
+              }}
+              onMouseEnter={(e) => {
+                (e.currentTarget as HTMLElement).style.borderColor = "var(--orange)";
+                (e.currentTarget as HTMLElement).style.color = "var(--orange)";
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLElement).style.borderColor = "var(--border)";
+                (e.currentTarget as HTMLElement).style.color = "var(--text-muted)";
+              }}
+            >
+              + {t.label}
+            </button>
+          ))}
+        </div>
+
+      </div>{/* end centered hero */}
 
       {/* GUS insights */}
-      <div style={{ marginBottom: "40px" }}>
+      <div style={{ marginBottom: "40px", maxWidth: "760px", margin: "0 auto 40px" }}>
         <p style={{
           fontFamily: "var(--font-mono)",
           fontSize: "9px",
@@ -377,7 +413,7 @@ export default function HomePage() {
       </div>
 
       {/* Active jobs — compact */}
-      <div>
+      <div style={{ maxWidth: "760px", margin: "0 auto" }}>
         <div style={{
           display: "flex",
           alignItems: "center",
