@@ -1,7 +1,7 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { calculateTax, formatTaxLabel, Province, PST_PROVINCES, PROVINCE_NAMES } from "@/lib/taxEngine";
-import { defaultPricingSettings, loadPricingSettings, savePricingSettings } from "@/lib/mockData";
+import { defaultPricingSettings, loadPricingSettings, savePricingSettings, loadLogo, saveLogo, removeLogo } from "@/lib/mockData";
 
 type Tab =
   | "general" | "business" | "appearance"
@@ -111,6 +111,26 @@ export default function SettingsPanel() {
   ]);
   const [followupExpandedStep, setFollowupExpandedStep] = useState<number | null>(null);
 
+  // Business profile
+  const [companyName, setCompanyName] = useState(defaultPricingSettings.companyName);
+  const [gstNumber, setGstNumber] = useState(defaultPricingSettings.gstNumber);
+  const [phone, setPhone] = useState(defaultPricingSettings.phone);
+  const [bizEmail, setBizEmail] = useState(defaultPricingSettings.email);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const logoInputRef = useRef<HTMLInputElement>(null);
+
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const dataUrl = ev.target?.result as string;
+      saveLogo(dataUrl);
+      setLogoUrl(dataUrl);
+    };
+    reader.readAsDataURL(file);
+  };
+
   const [province, setProvince] = useState<Province>(defaultPricingSettings.province);
   const [pstRegistered, setPstRegistered] = useState(defaultPricingSettings.pstRegistered);
   const [standardLaborRate, setStandardLaborRate] = useState(defaultPricingSettings.standardLaborRate);
@@ -129,6 +149,11 @@ export default function SettingsPanel() {
 
   useEffect(() => {
     const s = loadPricingSettings();
+    setCompanyName(s.companyName);
+    setGstNumber(s.gstNumber);
+    setPhone(s.phone);
+    setBizEmail(s.email);
+    setLogoUrl(loadLogo());
     setProvince(s.province);
     setPstRegistered(s.pstRegistered);
     setStandardLaborRate(s.standardLaborRate);
@@ -204,32 +229,58 @@ export default function SettingsPanel() {
           <div>
             <h1 style={{ fontSize: "20px", fontWeight: 500, color: "var(--text)", marginBottom: "6px" }}>Business profile</h1>
             <p style={{ fontSize: "13px", color: "var(--text-muted)", marginBottom: "28px", lineHeight: 1.6 }}>Appears on every estimate — your logo, contact info, and tax number.</p>
+
+            {/* Logo */}
             <div style={sec}>
               <SectionTitle>Logo</SectionTitle>
-              <div style={{ border: "1.5px dashed rgba(255,255,255,0.12)", borderRadius: "10px", padding: "24px", textAlign: "center", cursor: "pointer", background: "var(--bg-page)" }}>
-                <i className="ti ti-upload" style={{ fontSize: "22px", color: "var(--text-muted)", display: "block", marginBottom: "6px" }} />
-                <div style={{ fontSize: "12px", color: "var(--text-muted)" }}>Click to upload your logo</div>
-                <div style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "2px" }}>PNG, SVG or JPG · max 2MB · recommended 300×120px</div>
+              <input ref={logoInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleLogoUpload} />
+              {logoUrl ? (
+                <div style={{ border: "1px solid var(--border)", borderRadius: "10px", padding: "16px", background: "var(--bg-page)", display: "flex", alignItems: "center", gap: "16px" }}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={logoUrl} alt="Company logo" style={{ maxHeight: "60px", maxWidth: "180px", objectFit: "contain", borderRadius: "4px" }} />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: "13px", color: "var(--text)", marginBottom: "4px" }}>Logo uploaded</div>
+                    <div style={{ fontSize: "11.5px", color: "var(--text-muted)" }}>Appears in the header of every estimate you send.</div>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                    <button onClick={() => logoInputRef.current?.click()} style={{ fontSize: "12px", color: "var(--teal)", background: "rgba(26,191,191,0.08)", border: "1px solid rgba(26,191,191,0.2)", borderRadius: "6px", padding: "5px 12px", cursor: "pointer" }}>Replace</button>
+                    <button onClick={() => { removeLogo(); setLogoUrl(null); }} style={{ fontSize: "12px", color: "var(--text-muted)", background: "none", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "6px", padding: "5px 12px", cursor: "pointer" }}>Remove</button>
+                  </div>
+                </div>
+              ) : (
+                <div onClick={() => logoInputRef.current?.click()} style={{ border: "1.5px dashed rgba(255,255,255,0.12)", borderRadius: "10px", padding: "28px", textAlign: "center", cursor: "pointer", background: "var(--bg-page)", transition: "border-color 0.15s" }}
+                  onMouseEnter={e => (e.currentTarget as HTMLElement).style.borderColor = "rgba(26,191,191,0.4)"}
+                  onMouseLeave={e => (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.12)"}>
+                  <i className="ti ti-upload" style={{ fontSize: "22px", color: "var(--text-muted)", display: "block", marginBottom: "8px" }} />
+                  <div style={{ fontSize: "13px", color: "var(--text-secondary)", fontWeight: 500 }}>Click to upload your logo</div>
+                  <div style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "4px" }}>PNG, SVG or JPG · recommended 300×120px</div>
+                </div>
+              )}
+            </div>
+
+            {/* Company details */}
+            <div style={sec}>
+              <SectionTitle>Company details</SectionTitle>
+              <Field label="Company name">
+                <input type="text" value={companyName} onChange={e => setCompanyName(e.target.value)} style={inp} />
+              </Field>
+              <div style={row2}>
+                <Field label="GST / HST number">
+                  <input type="text" value={gstNumber} onChange={e => setGstNumber(e.target.value)} style={inp} />
+                </Field>
+                <Field label="WCB / WorkSafe number" optional>
+                  <input type="text" placeholder="e.g. 12345678" style={inp} />
+                </Field>
               </div>
             </div>
+
+            {/* Contact info */}
             <div style={sec}>
-              <SectionTitle>Your details</SectionTitle>
-              <p style={{ fontSize: "12.5px", color: "var(--text-muted)", marginBottom: "14px", lineHeight: 1.6 }}>Your name and title appear on every estimate you send.</p>
+              <SectionTitle>Contact information</SectionTitle>
               <div style={row2}>
                 <Field label="First name"><input type="text" defaultValue="Kelsea" style={inp} /></Field>
                 <Field label="Last name"><input type="text" defaultValue="Loewen" style={inp} /></Field>
               </div>
-            </div>
-            <div style={sec}>
-              <SectionTitle>Company details</SectionTitle>
-              <Field label="Company name"><input type="text" defaultValue="Reputation Plumbing & Heating" style={inp} /></Field>
-              <div style={row2}>
-                <Field label="GST / HST number"><input type="text" defaultValue="715748331RT0001" style={inp} /></Field>
-                <Field label="WCB / WorkSafe number" optional><input type="text" placeholder="e.g. 12345678" style={inp} /></Field>
-              </div>
-            </div>
-            <div style={sec}>
-              <SectionTitle>Contact information</SectionTitle>
               <Field label="Business address"><input type="text" placeholder="Street address" style={inp} /></Field>
               <div style={row3}>
                 <Field label="City"><input type="text" defaultValue="Port Moody" style={inp} /></Field>
@@ -239,12 +290,17 @@ export default function SettingsPanel() {
                 <Field label="Postal code"><input type="text" placeholder="V3H 1A1" style={inp} /></Field>
               </div>
               <div style={row2}>
-                <Field label="Phone"><input type="tel" defaultValue="778-840-1388" style={inp} /></Field>
-                <Field label="Email"><input type="email" defaultValue="kelsea@repplumbing.net" style={inp} /></Field>
+                <Field label="Phone">
+                  <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} style={inp} />
+                </Field>
+                <Field label="Email">
+                  <input type="email" value={bizEmail} onChange={e => setBizEmail(e.target.value)} style={inp} />
+                </Field>
               </div>
               <Field label="Website" optional><input type="text" placeholder="https://repplumbing.ca" style={inp} /></Field>
             </div>
-            <SaveBar />
+
+            <SaveBar onSave={() => savePricingSettings({ companyName, gstNumber, phone, email: bizEmail })} />
           </div>
         )}
 

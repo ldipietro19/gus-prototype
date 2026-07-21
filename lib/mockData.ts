@@ -129,6 +129,11 @@ export const mockBusinessProfile: BusinessProfile = {
 
 // ── Pricing Settings ─────────────────────────────────────────────────────────
 export interface PricingSettings {
+  // Business profile
+  companyName: string;
+  gstNumber: string;
+  phone: string;
+  email: string;
   // Tax / province
   province: import("./taxEngine").Province;
   pstRegistered: boolean;
@@ -154,6 +159,10 @@ export interface PricingSettings {
 }
 
 export const defaultPricingSettings: PricingSettings = {
+  companyName: "LC Plumbing Co",
+  gstNumber: "715748331RT0001",
+  phone: "778-840-1388",
+  email: "kelsea@repplumbing.net",
   province: "BC",
   pstRegistered: true,
   standardLaborRate: 113,
@@ -175,6 +184,18 @@ export const defaultPricingSettings: PricingSettings = {
 };
 
 const SETTINGS_KEY = "gus_settings";
+const LOGO_KEY = "gus_logo";
+
+export function loadLogo(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem(LOGO_KEY);
+}
+export function saveLogo(dataUrl: string) {
+  localStorage.setItem(LOGO_KEY, dataUrl);
+}
+export function removeLogo() {
+  localStorage.removeItem(LOGO_KEY);
+}
 
 export function loadPricingSettings(): PricingSettings {
   if (typeof window === "undefined") return defaultPricingSettings;
