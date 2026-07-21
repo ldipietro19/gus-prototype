@@ -41,7 +41,7 @@ const MIN_WIDTH = 52;
 const MAX_WIDTH = 340;
 const SNAP_COLLAPSED = 100; // below this → icon-only
 
-export default function Sidebar() {
+export default function Sidebar({ onOpenSettings }: { onOpenSettings?: () => void }) {
   const [width, setWidth] = useState(230);
   const [collapsed, setCollapsed] = useState(false);
   const [openBuckets, setOpenBuckets] = useState<Record<string, boolean>>({ active: true, won: false, lost: false });
@@ -281,30 +281,42 @@ export default function Sidebar() {
       </div>
 
       {/* ── Company footer → Settings ── */}
-      <Link href="/settings" style={{
-        padding: collapsed ? "10px 0" : "10px 16px",
-        borderTop: "1px solid var(--border)",
-        fontSize: "12px",
-        color: isActive("/settings") ? "var(--orange)" : "var(--text-muted)",
-        background: isActive("/settings") ? "rgba(242,106,27,0.08)" : "transparent",
-        display: "flex", alignItems: "center",
-        justifyContent: collapsed ? "center" : "flex-start",
-        gap: "8px",
-        fontFamily: "var(--font-mono)", letterSpacing: "0.04em",
-        textDecoration: "none", flexShrink: 0,
-        transition: "background 0.1s, color 0.1s",
-      }}
-        onMouseEnter={e => { if (!isActive("/settings")) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.04)"; }}
-        onMouseLeave={e => { if (!isActive("/settings")) (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
+      <button
+        onClick={() => onOpenSettings?.()}
+        style={{
+          padding: collapsed ? "10px 0" : "10px 16px",
+          borderTop: "1px solid var(--border)",
+          borderLeft: "none", borderRight: "none", borderBottom: "none",
+          fontSize: "12px",
+          color: "var(--text-muted)",
+          background: "transparent",
+          display: "flex", alignItems: "center",
+          justifyContent: collapsed ? "center" : "flex-start",
+          gap: "8px",
+          fontFamily: "var(--font-mono)", letterSpacing: "0.04em",
+          flexShrink: 0,
+          transition: "background 0.1s, color 0.1s",
+          cursor: "pointer",
+          width: "100%",
+          textAlign: "left",
+        }}
+        onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.04)"}
+        onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = "transparent"}
+      >
         <span style={{
           width: "22px", height: "22px", borderRadius: "50%", flexShrink: 0,
-          background: isActive("/settings") ? "rgba(242,106,27,0.25)" : "rgba(242,106,27,0.15)",
-          border: `1px solid ${isActive("/settings") ? "rgba(242,106,27,0.5)" : "rgba(242,106,27,0.3)"}`,
+          background: "rgba(242,106,27,0.15)",
+          border: "1px solid rgba(242,106,27,0.3)",
           display: "inline-flex", alignItems: "center", justifyContent: "center",
           fontSize: "10px", fontWeight: 700, color: "var(--orange)",
         }}>L</span>
-        {!collapsed && <span>LC Plumbing Co</span>}
-      </Link>
+        {!collapsed && (
+          <span style={{ flex: 1 }}>LC Plumbing Co</span>
+        )}
+        {!collapsed && (
+          <i className="ti ti-settings" style={{ fontSize: "13px", opacity: 0.4 }} />
+        )}
+      </button>
 
       {/* ── Drag handle ── */}
       <div
