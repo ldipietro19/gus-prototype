@@ -31,6 +31,29 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
   const [copied, setCopied] = useState(false);
   const [shareOrigin, setShareOrigin] = useState("");
   const [customerResponse, setCustomerResponse] = useState<"accepted" | "declined" | null>(null);
+  const [previewStep, setPreviewStep] = useState<number | null>(null);
+
+  // Follow-up steps (from settings in production)
+  const FOLLOWUP_STEPS = [
+    {
+      day: 3,
+      label: "Soft nudge",
+      subject: `Quick check-in on your estimate — ${job?.jobId ?? ""}`,
+      body: `Hi ${job?.customer ?? "there"},\n\nJust wanted to make sure your estimate didn't get buried. Happy to answer any questions or adjust the scope if needed.\n\nYou can view and accept it here: [quote link]\n\nKelsea\nLC Plumbing Co · 778-840-1388`,
+    },
+    {
+      day: 7,
+      label: "Check-in",
+      subject: `Still here if you have questions — ${job?.jobId ?? ""}`,
+      body: `Hi ${job?.customer ?? "there"},\n\nFollowing up one more time on your estimate. No pressure at all — just want to make sure you have everything you need to make a decision.\n\nThe estimate is valid for 30 days from when it was sent.\n\n[view estimate]\n\nKelsea\nLC Plumbing Co`,
+    },
+    {
+      day: 14,
+      label: "Final reminder",
+      subject: `Your estimate expires soon — ${job?.jobId ?? ""}`,
+      body: `Hi ${job?.customer ?? "there"},\n\nThis is our last follow-up — your estimate expires in 16 days. After that, material prices may change and we'd need to re-quote.\n\nIf the timing isn't right, no worries at all — just let us know and we can revisit later.\n\n[view estimate]\n\nKelsea\nLC Plumbing Co`,
+    },
+  ];
 
   useEffect(() => {
     setShareOrigin(window.location.origin);
@@ -422,6 +445,93 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
                 <span style={{ fontFamily: "var(--font-bebas)", fontSize: "22px", letterSpacing: "0.04em", color: "var(--orange)" }}>${grandTotal.toFixed(2)} CAD</span>
               </div>
             </div>
+
+            {/* ── Follow-up schedule ── */}
+            {(effectiveStatus === "Sent" || effectiveStatus === "Won" || effectiveStatus === "Lost") && (
+              <div style={{ marginTop: "32px" }}>
+                <p style={{ fontFamily: "var(--font-mono)", fontSize: "9px", color: "var(--teal)", textTransform: "uppercase", letterSpacing: "0.2em", marginBottom: "8px" }}>// Follow-up Schedule</p>
+                <h2 style={{ fontFamily: "var(--font-bebas)", fontSize: "22px", letterSpacing: "0.04em", marginBottom: "14px", color: "var(--text)" }}>Automated Follow-ups</h2>
+
+                {/* Prototype: assume quote sent 4 days ago */}
+                {(() => {
+                  const daysSinceSent = 4;
+                  const stopped = effectiveStatus === "Won" || effectiveStatus === "Lost";
+
+                  return (
+                    <div style={{ border: "1px solid var(--border)", borderRadius: "10px", overflow: "hidden", background: "var(--bg)" }}>
+                      {FOLLOWUP_STEPS.map((step, i) => {
+                        const fired  = !stopped && daysSinceSent >= step.day;
+                        const active = !stopped && !fired && (i === 0 || daysSinceSent >= FOLLOWUP_STEPS[i - 1].day);
+                        const daysUntil = step.day - daysSinceSent;
+                        const isOpen = previewStep === i;
+
+                        const dotColor  = stopped ? "#3D6480" : fired ? "#1ABFBF" : "#3D6480";
+                        const dotBorder = !fired && !stopped ? "1.5px dashed #3D6480" : "none";
+
+                        return (
+                          <div key={step.day}>
+                            {/* Step row */}
+                            <div style={{ display: "flex", alignItems: "center", gap: "14px", padding: "14px 20px", borderBottom: isOpen || i < FOLLOWUP_STEPS.length - 1 ? "1px solid var(--border-light)" : "none" }}>
+                              {/* Status dot */}
+                              <div style={{ width: "10px", height: "10px", borderRadius: "50%", flexShrink: 0, background: dotColor, border: dotBorder, opacity: stopped ? 0.4 : 1 }} />
+
+                              {/* Day pill */}
+                              <span style={{ fontSize: "11px", fontFamily: "var(--font-mono)", color: "var(--text-muted)", background: "rgba(255,255,255,0.05)", border: "1px solid var(--border)", borderRadius: "4px", padding: "2px 7px", flexShrink: 0 }}>
+                                Day {step.day}
+                              </span>
+
+                              {/* Label + subject */}
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <p style={{ fontSize: "13px", fontWeight: 500, color: stopped ? "var(--text-muted)" : "var(--text)", marginBottom: "1px" }}>{step.label}</p>
+                                <p style={{ fontSize: "11.5px", color: "var(--text-muted)", fontFamily: "var(--font-mono)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{step.subject}</p>
+                              </div>
+
+                              {/* Status badge */}
+                              {stopped ? (
+                                <span style={{ fontSize: "10px", fontFamily: "var(--font-mono)", color: "#3D6480", background: "rgba(61,100,128,0.12)", border: "1px solid rgba(61,100,128,0.25)", borderRadius: "4px", padding: "2px 8px", flexShrink: 0 }}>
+                                  Stopped · {effectiveStatus}
+                                </span>
+                              ) : fired ? (
+                                <span style={{ fontSize: "10px", fontFamily: "var(--font-mono)", color: "#1ABFBF", background: "rgba(26,191,191,0.1)", border: "1px solid rgba(26,191,191,0.25)", borderRadius: "4px", padding: "2px 8px", flexShrink: 0 }}>
+                                  ✓ Sent
+                                </span>
+                              ) : (
+                                <span style={{ fontSize: "10px", fontFamily: "var(--font-mono)", color: "var(--text-muted)", background: "rgba(255,255,255,0.05)", border: "1px solid var(--border)", borderRadius: "4px", padding: "2px 8px", flexShrink: 0 }}>
+                                  Sends in {daysUntil} day{daysUntil !== 1 ? "s" : ""}
+                                </span>
+                              )}
+
+                              {/* Preview toggle */}
+                              <button onClick={() => setPreviewStep(isOpen ? null : i)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--teal)", fontSize: "11.5px", fontFamily: "var(--font-mono)", flexShrink: 0, padding: "0 4px" }}>
+                                {isOpen ? "Hide" : "Preview"}
+                              </button>
+                            </div>
+
+                            {/* Email preview */}
+                            {isOpen && (
+                              <div style={{ padding: "16px 20px", background: "rgba(26,191,191,0.03)", borderBottom: i < FOLLOWUP_STEPS.length - 1 ? "1px solid var(--border-light)" : "none" }}>
+                                <div style={{ marginBottom: "10px" }}>
+                                  <span style={{ fontSize: "10px", fontFamily: "var(--font-mono)", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.1em" }}>Subject: </span>
+                                  <span style={{ fontSize: "12px", color: "var(--text-secondary)" }}>{step.subject}</span>
+                                </div>
+                                <div style={{ background: "var(--bg-page)", border: "1px solid var(--border)", borderRadius: "8px", padding: "14px 16px" }}>
+                                  {step.body.split("\n").map((line, j) => (
+                                    <p key={j} style={{ fontSize: "12.5px", color: line === "" ? undefined : "var(--text-secondary)", lineHeight: 1.7, minHeight: line === "" ? "10px" : undefined, margin: 0 }}>{line}</p>
+                                  ))}
+                                </div>
+                                <p style={{ fontSize: "10.5px", color: "var(--text-muted)", fontFamily: "var(--font-mono)", marginTop: "8px" }}>
+                                  // Edit templates in Settings → Notifications
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
           </div>
         )}
       </div>

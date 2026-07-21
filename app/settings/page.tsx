@@ -100,8 +100,16 @@ export default function SettingsPage() {
     calloutWaiver: true, precautionWork: true, warranty: true,
     notifyViewed: true, notifyAccepted: true, notifyDeclined: false,
     notifyExpiry: true, weeklySummary: false, compactView: false,
+    followupsEnabled: true,
   });
   const tog = (key: string) => setToggles(t => ({ ...t, [key]: !t[key] }));
+
+  const [followupSteps, setFollowupSteps] = useState([
+    { day: 3,  label: "Soft nudge",     subject: "Quick check-in on your estimate — {job_id}", body: "Hi {customer_name},\n\nJust wanted to make sure your estimate didn't get buried. Happy to answer any questions or adjust the scope if needed.\n\nYou can view and accept it here: {quote_link}\n\nKelsea\nLC Plumbing Co · 778-840-1388" },
+    { day: 7,  label: "Check-in",       subject: "Still here if you have questions — {job_id}",  body: "Hi {customer_name},\n\nFollowing up one more time on your estimate. No pressure — just want to make sure you have everything you need.\n\nThe estimate is valid for 30 days from when it was sent.\n\n{quote_link}\n\nKelsea\nLC Plumbing Co" },
+    { day: 14, label: "Final reminder", subject: "Your estimate expires soon — {job_id}",         body: "Hi {customer_name},\n\nThis is our last follow-up — your estimate expires in 16 days. After that, material prices may change and we'd need to re-quote.\n\nIf the timing isn't right, no worries — just let us know.\n\n{quote_link}\n\nKelsea\nLC Plumbing Co" },
+  ]);
+  const [followupExpandedStep, setFollowupExpandedStep] = useState<number | null>(null);
 
   // Tax engine state — persisted to localStorage via PricingSettings
   const [province, setProvince] = useState<Province>(defaultPricingSettings.province);
@@ -585,27 +593,119 @@ export default function SettingsPage() {
           {tab === "notifications" && (
             <div>
               <h1 style={{ fontSize: "20px", fontWeight: 500, color: "var(--text)", marginBottom: "6px" }}>Notifications</h1>
-              <p style={{ fontSize: "13px", color: "var(--text-muted)", marginBottom: "28px", lineHeight: 1.6 }}>Control when GUS sends you email alerts.</p>
+              <p style={{ fontSize: "13px", color: "var(--text-muted)", marginBottom: "28px", lineHeight: 1.6 }}>Control when GUS sends you and your customers email alerts.</p>
+
+              {/* Estimate activity */}
               <div style={sec}>
                 <SectionTitle>Estimate activity</SectionTitle>
                 <div style={{ border: "1px solid var(--border)", borderRadius: "10px", overflow: "hidden" }}>
                   <ToggleRow label="Estimate viewed" sub="Email me when a customer opens an estimate link for the first time." on={toggles.notifyViewed} onToggle={() => tog("notifyViewed")} />
                   <ToggleRow label="Estimate accepted" sub="Email me when a customer accepts an estimate." on={toggles.notifyAccepted} onToggle={() => tog("notifyAccepted")} />
-                  <ToggleRow label="Estimate declined" sub="Email me when a customer declines or marks an estimate as not proceeding." on={toggles.notifyDeclined} onToggle={() => tog("notifyDeclined")} last />
+                  <ToggleRow label="Estimate declined" sub="Email me when a customer declines." on={toggles.notifyDeclined} onToggle={() => tog("notifyDeclined")} last />
                 </div>
               </div>
+
+              {/* Automatic follow-ups */}
               <div style={sec}>
-                <SectionTitle>Reminders</SectionTitle>
+                <SectionTitle>Automatic follow-ups</SectionTitle>
+                <p style={{ fontSize: "12.5px", color: "var(--text-muted)", marginBottom: "14px", lineHeight: 1.6 }}>
+                  GUS sends follow-up emails to customers who haven&apos;t responded to a quote. Emails stop automatically when the customer accepts, declines, or the quote expires.
+                </p>
+
+                {/* Master toggle */}
+                <div style={{ border: "1px solid var(--border)", borderRadius: "10px", overflow: "hidden", marginBottom: "14px" }}>
+                  <ToggleRow
+                    label="Enable automatic follow-ups"
+                    sub="GUS will email your customer at each interval below until they respond."
+                    on={toggles.followupsEnabled}
+                    onToggle={() => tog("followupsEnabled")}
+                    last
+                  />
+                </div>
+
+                {/* Steps */}
+                {toggles.followupsEnabled && (
+                  <div style={{ border: "1px solid var(--border)", borderRadius: "10px", overflow: "hidden" }}>
+                    {followupSteps.map((step, i) => {
+                      const isOpen = followupExpandedStep === i;
+                      return (
+                        <div key={i} style={{ borderBottom: i < followupSteps.length - 1 || isOpen ? "1px solid var(--border-light)" : "none" }}>
+                          {/* Step header */}
+                          <div style={{ display: "flex", alignItems: "center", gap: "12px", padding: "14px 16px" }}>
+                            <div style={{ width: "8px", height: "8px", borderRadius: "50%", background: "var(--teal)", flexShrink: 0 }} />
+                            <div style={{ display: "flex", alignItems: "center", gap: "8px", flexShrink: 0 }}>
+                              <span style={{ fontSize: "11px", fontFamily: "var(--font-mono)", color: "var(--text-muted)" }}>Day</span>
+                              <input
+                                type="number"
+                                value={step.day}
+                                onChange={e => setFollowupSteps(steps => steps.map((s, j) => j === i ? { ...s, day: +e.target.value } : s))}
+                                style={{ ...inp, width: "52px", height: "30px", fontSize: "13px", textAlign: "center", padding: "0 6px" }}
+                              />
+                            </div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <input
+                                type="text"
+                                value={step.subject}
+                                onChange={e => setFollowupSteps(steps => steps.map((s, j) => j === i ? { ...s, subject: e.target.value } : s))}
+                                style={{ ...inp, height: "30px", fontSize: "12.5px" }}
+                              />
+                            </div>
+                            <button
+                              onClick={() => setFollowupExpandedStep(isOpen ? null : i)}
+                              style={{ background: "none", border: "none", cursor: "pointer", color: "var(--teal)", fontSize: "11.5px", fontFamily: "var(--font-mono)", flexShrink: 0 }}>
+                              {isOpen ? "Hide" : "Edit body"}
+                            </button>
+                          </div>
+
+                          {/* Expanded body editor */}
+                          {isOpen && (
+                            <div style={{ padding: "0 16px 16px" }}>
+                              <div style={{ marginBottom: "6px" }}>
+                                <p style={{ fontSize: "10px", fontFamily: "var(--font-mono)", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "6px" }}>Email body</p>
+                                <textarea
+                                  rows={6}
+                                  value={step.body}
+                                  onChange={e => setFollowupSteps(steps => steps.map((s, j) => j === i ? { ...s, body: e.target.value } : s))}
+                                  style={{ ...inp, height: "auto", padding: "10px 12px", resize: "vertical" as const, lineHeight: 1.7, fontSize: "12.5px" }}
+                                />
+                              </div>
+                              <p style={{ fontSize: "11px", color: "var(--text-muted)", fontFamily: "var(--font-mono)", lineHeight: 1.6 }}>
+                                Placeholders: <code style={{ background: "rgba(255,255,255,0.06)", padding: "1px 5px", borderRadius: "3px" }}>{"{customer_name}"}</code>{" "}
+                                <code style={{ background: "rgba(255,255,255,0.06)", padding: "1px 5px", borderRadius: "3px" }}>{"{job_id}"}</code>{" "}
+                                <code style={{ background: "rgba(255,255,255,0.06)", padding: "1px 5px", borderRadius: "3px" }}>{"{quote_link}"}</code>
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+
+                    {/* Stop conditions */}
+                    <div style={{ padding: "12px 16px", background: "rgba(255,255,255,0.02)", borderTop: "1px solid var(--border-light)" }}>
+                      <p style={{ fontSize: "11px", fontFamily: "var(--font-mono)", color: "var(--text-muted)", lineHeight: 1.7 }}>
+                        // Follow-ups stop automatically when: customer accepts · customer declines · quote expires · you manually stop them
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Reminders */}
+              <div style={sec}>
+                <SectionTitle>Other reminders</SectionTitle>
                 <div style={{ border: "1px solid var(--border)", borderRadius: "10px", overflow: "hidden" }}>
-                  <ToggleRow label="Estimate expiry reminder" sub="Alert me before an estimate expires with no response. Configure timing in Estimates settings." on={toggles.notifyExpiry} onToggle={() => tog("notifyExpiry")} />
+                  <ToggleRow label="Estimate expiry warning" sub="Alert me 3 days before an estimate expires with no response." on={toggles.notifyExpiry} onToggle={() => tog("notifyExpiry")} />
                   <ToggleRow label="Weekly summary" sub="Monday digest — estimates sent, accepted, and pending that week." on={toggles.weeklySummary} onToggle={() => tog("weeklySummary")} last />
                 </div>
               </div>
+
+              {/* Notification email */}
               <div style={sec}>
                 <SectionTitle>Notification email</SectionTitle>
                 <Field label="Send alerts to"><input type="email" defaultValue="kelsea@reputationplumbing.ca" style={inp} /></Field>
                 <p style={{ fontSize: "12px", color: "var(--text-muted)", marginTop: "6px", lineHeight: 1.6 }}>Can be different from your login email — useful for a shared inbox.</p>
               </div>
+
               <SaveBar />
             </div>
           )}
