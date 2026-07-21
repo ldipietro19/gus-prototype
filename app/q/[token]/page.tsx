@@ -1,7 +1,7 @@
 "use client";
 
 import { use, useEffect, useState } from "react";
-import { mockJobs, mockCustomers, defaultPricingSettings, loadPricingSettings, loadLogo } from "@/lib/mockData";
+import { mockJobs, mockCustomers, defaultPricingSettings, loadPricingSettings, loadLogo, loadEstimateOverride } from "@/lib/mockData";
 import { calculateTax, formatTaxLabel } from "@/lib/taxEngine";
 
 type Response = "pending" | "accepted" | "declined";
@@ -27,6 +27,8 @@ export default function CustomerQuotePage({ params }: { params: Promise<{ token:
   const [labourWarranty, setLabourWarranty] = useState(defaultPricingSettings.labourWarranty);
   const [partsWarranty, setPartsWarranty] = useState(defaultPricingSettings.partsWarranty);
   const [quoteDetailLevel, setQuoteDetailLevel] = useState<DetailLevel>("detailed");
+  const [estimateNotes, setEstimateNotes] = useState("");
+  const [includeCallOut, setIncludeCallOut] = useState(true);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
 
   const job = mockJobs.find(j => j.id === token);
@@ -50,6 +52,9 @@ export default function CustomerQuotePage({ params }: { params: Promise<{ token:
     setLabourWarranty(s.labourWarranty);
     setPartsWarranty(s.partsWarranty);
     setQuoteDetailLevel(s.quoteDetailLevel ?? "detailed");
+    const override = loadEstimateOverride(token);
+    setEstimateNotes(override.estimateNotes);
+    setIncludeCallOut(override.includeCallOut);
     setLogoUrl(loadLogo());
     setLoaded(true);
   }, [token]);
@@ -69,7 +74,7 @@ export default function CustomerQuotePage({ params }: { params: Promise<{ token:
   const margin = job?.margin ?? defaultPricingSettings.defaultMarkup;
   const materialsWithMargin = materialsCost * (1 + margin / 100);
   const labour = actualLaborRate * ((job?.laborHours) ?? 2);
-  const callOut = callOutFee;
+  const callOut = includeCallOut ? callOutFee : 0;
   const subtotal = materialsWithMargin + labour + callOut;
   const taxResult = calculateTax(province, materialsWithMargin, labour + callOut);
   const grandTotal = subtotal + taxResult.totalTax;
@@ -145,7 +150,7 @@ export default function CustomerQuotePage({ params }: { params: Promise<{ token:
             {companyName} has been notified and will be in touch to schedule the work.
           </p>
           <div style={{ background: "white", border: `1px solid ${border}`, padding: "20px 24px", textAlign: "left" }}>
-            <div style={{ fontSize: "12px", fontFamily: "'DM Mono', monospace", color: teal, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: "10px" }}>// Quote accepted</div>
+            <div style={{ fontSize: "12px", fontFamily: "'DM Mono', monospace", color: teal, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: "10px" }}>// Estimate accepted</div>
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: "14px", marginBottom: "6px" }}>
               <span style={{ color: text2 }}>Quote</span>
               <span style={{ color: text, fontFamily: "'DM Mono', monospace" }}>{job.jobId}</span>
@@ -214,7 +219,7 @@ export default function CustomerQuotePage({ params }: { params: Promise<{ token:
 
           {/* Meta bar */}
           <div className="q-meta-bar" style={{ padding: "20px 48px 18px", borderBottom: `1px solid ${border}`, display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: "16px" }}>
-            <div style={{ fontSize: "26px", fontWeight: 300, color: text, letterSpacing: "-0.02em" }}>Quote</div>
+            <div style={{ fontSize: "26px", fontWeight: 300, color: text, letterSpacing: "-0.02em" }}>Estimate</div>
             <div className="q-meta-details" style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", justifyContent: "flex-end" }}>
               <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "11px", color: text3, letterSpacing: "0.04em" }}>{job.jobId}</span>
               <span style={{ color: "#CCC" }}>·</span>
@@ -259,7 +264,7 @@ export default function CustomerQuotePage({ params }: { params: Promise<{ token:
           <div className="q-pad" style={{ padding: "24px 48px 28px" }}>
             <div style={miniLabel}>Scope of Work</div>
             <div style={{ fontSize: "13.5px", color: text2, lineHeight: "1.75" }}>
-              {job.description ?? "Work as discussed with customer."}
+              {estimateNotes || job.description || "Work as discussed with customer."}
             </div>
           </div>
 
@@ -394,7 +399,7 @@ export default function CustomerQuotePage({ params }: { params: Promise<{ token:
               }}>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: "14px", color: text, fontWeight: 500, lineHeight: "1.5" }}>
-                    {job.description ? job.description.charAt(0).toUpperCase() + job.description.slice(1) : "Work as discussed"}
+                    {(() => { const s = estimateNotes || job.description || "Work as discussed"; return s.charAt(0).toUpperCase() + s.slice(1); })()}
                   </div>
                   {job.parts?.[0]?.items[0] && (
                     <div style={{ fontSize: "12.5px", color: text3, marginTop: "4px", lineHeight: "1.6" }}>

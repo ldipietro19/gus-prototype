@@ -2,10 +2,10 @@
 
 import { use, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { mockJobs, defaultPricingSettings, loadPricingSettings } from "@/lib/mockData";
+import { mockJobs, defaultPricingSettings, loadPricingSettings, loadEstimateOverride, saveEstimateOverride } from "@/lib/mockData";
 import { calculateTax, formatTaxLabel, PST_PROVINCES } from "@/lib/taxEngine";
 
-type Tab = "Design" | "BOM" | "Quote";
+type Tab = "Design" | "BOM" | "Estimate";
 
 const PRIORITY_STYLE: Record<string, { bg: string; color: string; border: string }> = {
   HIGH: { bg: "rgba(242,106,27,0.12)", color: "#F26A1B", border: "rgba(242,106,27,0.35)" },
@@ -19,6 +19,9 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
   const job = mockJobs.find(j => j.id === id);
 
   const [tab, setTab] = useState<Tab>("Design");
+  const [estimateNotes, setEstimateNotes] = useState("");
+  const [includeCallOut, setIncludeCallOut] = useState(true);
+  const [callOutFeeAmount, setCallOutFeeAmount] = useState(defaultPricingSettings.callOutFee);
   const [answers, setAnswers] = useState<Record<number, string>>(
     Object.fromEntries((job?.todos ?? []).map((t, i) => [i, t.answer ?? ""]))
   );
@@ -64,6 +67,13 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
     if (!job?.margin) setMargin(s.defaultMarkup);
     setProvince(s.province);
     setPstRegistered(s.pstRegistered);
+    setCallOutFeeAmount(s.callOutFee);
+
+    if (job?.id) {
+      const override = loadEstimateOverride(job.id);
+      setEstimateNotes(override.estimateNotes);
+      setIncludeCallOut(override.includeCallOut);
+    }
 
     const checkResponse = () => {
       const stored = JSON.parse(localStorage.getItem("gus_responses") || "{}");
@@ -101,10 +111,11 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
   const materialsCost = job.parts?.flatMap(g => g.items).reduce((s, i) => s + i.qty * i.unit, 0) ?? 0;
   const materialsWithMargin = materialsCost * (1 + margin / 100);
   const labour = laborRate * laborHours;
-  const subtotal = materialsWithMargin + labour;
+  const callOut = includeCallOut ? callOutFeeAmount : 0;
+  const subtotal = materialsWithMargin + labour + callOut;
 
   // Tax engine — reads province from settings (loaded in useEffect)
-  const taxResult = calculateTax(province, materialsWithMargin, labour);
+  const taxResult = calculateTax(province, materialsWithMargin, labour + callOut);
   const showPstWarning = PST_PROVINCES.includes(province) && !pstRegistered;
   const grandTotal = subtotal + taxResult.totalTax;
 
@@ -164,8 +175,8 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
           <span style={{ color: "var(--text-muted)", fontSize: "13px" }}>/</span>
           <span style={{ fontSize: "13px", fontWeight: 500, fontFamily: "var(--font-mono)", color: "var(--text-secondary)" }}>{job.jobId}</span>
           <div style={{ display: "flex", gap: "3px", marginLeft: "8px" }}>
-            {(["Design", "BOM", "Quote"] as Tab[]).map(t => {
-              const done = (t === "Design" && hasDesign) || (t === "BOM" && job.hasParts) || (t === "Quote" && job.hasQuote);
+            {(["Design", "BOM", "Estimate"] as Tab[]).map(t => {
+              const done = (t === "Design" && hasDesign) || (t === "BOM" && job.hasParts) || (t === "Estimate" && job.hasQuote);
               return (
                 <button key={t} onClick={() => setTab(t)} style={tabBtn(t)}>
                   {done && <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>}
@@ -188,7 +199,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
         <div style={{ padding: "10px 20px", display: "flex", alignItems: "center", gap: "10px", background: customerResponse === "accepted" ? "rgba(16,185,129,0.08)" : "rgba(239,68,68,0.08)", borderBottom: `1px solid ${customerResponse === "accepted" ? "rgba(16,185,129,0.2)" : "rgba(239,68,68,0.2)"}` }}>
           <span style={{ fontSize: "15px" }}>{customerResponse === "accepted" ? "✓" : "✕"}</span>
           <span style={{ fontSize: "13px", color: customerResponse === "accepted" ? "#34d399" : "#f87171", fontWeight: 500 }}>
-            {customerResponse === "accepted" ? "Customer accepted this quote" : "Customer declined this quote"}
+            {customerResponse === "accepted" ? "Customer accepted this estimate" : "Customer declined this estimate"}
           </span>
           <span style={{ fontSize: "12px", color: "var(--text-muted)", fontFamily: "var(--font-mono)", marginLeft: "4px" }}>— status updated to {effectiveStatus}</span>
         </div>
@@ -368,19 +379,39 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
           </div>
         )}
 
-        {/* ── QUOTE ── */}
-        {tab === "Quote" && (
+        {/* ── ESTIMATE ── */}
+        {tab === "Estimate" && (
           <div style={{ maxWidth: "680px", margin: "0 auto", padding: "32px 24px" }}>
+
+            {/* Customer */}
             <p style={{ fontFamily: "var(--font-mono)", fontSize: "9px", color: "var(--teal)", textTransform: "uppercase", letterSpacing: "0.2em", marginBottom: "8px" }}>// Customer</p>
             <h2 style={{ fontFamily: "var(--font-bebas)", fontSize: "28px", letterSpacing: "0.04em", marginBottom: "16px", color: "var(--text)" }}>Customer Details</h2>
             <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "32px" }}>
               <label style={{ fontSize: "13px", color: "var(--text-muted)", width: "90px", flexShrink: 0, fontFamily: "var(--font-mono)" }}>Customer</label>
               <input placeholder="Search or create a customer" defaultValue={job.customer ?? ""}
-                style={{ flex: 1, padding: "8px 14px", border: "1px solid var(--border)", borderRadius: "7px", fontSize: "14px", outline: "none", background: "rgba(255,255,255,0.05)" }} />
+                style={{ flex: 1, padding: "8px 14px", border: "1px solid var(--border)", borderRadius: "7px", fontSize: "14px", outline: "none", background: "rgba(255,255,255,0.05)", color: "var(--text)" }} />
             </div>
 
-            <p style={{ fontFamily: "var(--font-mono)", fontSize: "9px", color: "var(--teal)", textTransform: "uppercase", letterSpacing: "0.2em", marginBottom: "8px" }}>// Summary</p>
-            <h2 style={{ fontFamily: "var(--font-bebas)", fontSize: "28px", letterSpacing: "0.04em", marginBottom: "14px", color: "var(--text)" }}>Quote</h2>
+            {/* Estimate description */}
+            <p style={{ fontFamily: "var(--font-mono)", fontSize: "9px", color: "var(--teal)", textTransform: "uppercase", letterSpacing: "0.2em", marginBottom: "8px" }}>// Estimate Description</p>
+            <h2 style={{ fontFamily: "var(--font-bebas)", fontSize: "28px", letterSpacing: "0.04em", marginBottom: "6px", color: "var(--text)" }}>Scope of Work</h2>
+            <p style={{ fontSize: "12.5px", color: "var(--text-muted)", marginBottom: "10px", lineHeight: 1.6 }}>
+              This is what the customer sees on their estimate. If left blank, the job description is used.
+            </p>
+            <textarea
+              value={estimateNotes}
+              onChange={e => {
+                setEstimateNotes(e.target.value);
+                saveEstimateOverride(job.id, { estimateNotes: e.target.value });
+              }}
+              placeholder={job.description ?? "Describe the work as it will appear on the customer estimate..."}
+              rows={4}
+              style={{ width: "100%", padding: "12px 14px", border: "1px solid var(--border)", borderRadius: "8px", fontSize: "13.5px", resize: "vertical", color: "var(--text)", outline: "none", lineHeight: 1.6, background: "rgba(255,255,255,0.05)", fontFamily: "var(--font-sans)", marginBottom: "32px" }}
+            />
+
+            {/* Pricing summary */}
+            <p style={{ fontFamily: "var(--font-mono)", fontSize: "9px", color: "var(--teal)", textTransform: "uppercase", letterSpacing: "0.2em", marginBottom: "8px" }}>// Pricing</p>
+            <h2 style={{ fontFamily: "var(--font-bebas)", fontSize: "28px", letterSpacing: "0.04em", marginBottom: "14px", color: "var(--text)" }}>Estimate Summary</h2>
             <div style={{ border: "1px solid var(--border)", borderRadius: "10px", overflow: "hidden", background: "var(--bg)" }}>
               {[
                 { label: "Materials cost", value: `$${materialsCost.toFixed(2)} CAD`, control: null },
@@ -402,7 +433,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
               ))}
 
               {/* Labour */}
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "13px 20px", borderBottom: "1px solid var(--border)" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "13px 20px", borderBottom: "1px solid var(--border-light)" }}>
                 <span style={{ fontSize: "14px", color: "var(--text-secondary)" }}>Labour</span>
                 <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                   <div style={{ display: "flex", alignItems: "center", border: "1px solid var(--border)", borderRadius: "6px", overflow: "hidden" }}>
@@ -412,6 +443,27 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
                     <span style={suffixStyle}>hrs</span>
                   </div>
                   <span style={{ fontSize: "14px", minWidth: "110px", textAlign: "right", fontFamily: "var(--font-mono)", color: "var(--text)" }}>${labour.toFixed(2)} CAD</span>
+                </div>
+              </div>
+
+              {/* Call-out fee toggle */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "13px 20px", borderBottom: "1px solid var(--border)" }}>
+                <div>
+                  <span style={{ fontSize: "14px", color: includeCallOut ? "var(--text-secondary)" : "var(--text-muted)" }}>Call-out fee</span>
+                  <span style={{ fontSize: "11px", color: "var(--text-muted)", fontFamily: "var(--font-mono)", marginLeft: "8px" }}>from settings</span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                  {/* Toggle */}
+                  <button
+                    onClick={() => {
+                      const next = !includeCallOut;
+                      setIncludeCallOut(next);
+                      saveEstimateOverride(job.id, { includeCallOut: next });
+                    }}
+                    style={{ width: "36px", height: "20px", borderRadius: "10px", background: includeCallOut ? "var(--orange)" : "#3D6480", border: "none", cursor: "pointer", position: "relative", flexShrink: 0, transition: "background 0.2s" }}>
+                    <span style={{ position: "absolute", top: "2px", left: includeCallOut ? "18px" : "2px", width: "16px", height: "16px", borderRadius: "50%", background: "white", transition: "left 0.2s", display: "block" }} />
+                  </button>
+                  <span style={{ fontSize: "14px", minWidth: "110px", textAlign: "right", fontFamily: "var(--font-mono)", color: includeCallOut ? "var(--text)" : "var(--text-muted)", textDecoration: includeCallOut ? "none" : "line-through" }}>${callOutFeeAmount.toFixed(2)} CAD</span>
                 </div>
               </div>
 
@@ -544,7 +596,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "20px" }}>
               <div>
                 <div style={{ fontFamily: "var(--font-mono)", fontSize: "9px", color: "var(--teal)", letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: "4px" }}>// Share with customer</div>
-                <div style={{ fontSize: "17px", fontWeight: 500, color: "var(--text)" }}>Customer quote link</div>
+                <div style={{ fontSize: "17px", fontWeight: 500, color: "var(--text)" }}>Customer estimate link</div>
               </div>
               <button onClick={() => setShowShareModal(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", fontSize: "20px", lineHeight: 1, padding: "4px" }}>×</button>
             </div>
@@ -555,7 +607,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
                 <span style={{ fontSize: "16px" }}>{customerResponse === "accepted" ? "✓" : "✕"}</span>
                 <div>
                   <div style={{ fontSize: "13px", fontWeight: 500, color: customerResponse === "accepted" ? "#34d399" : "#f87171" }}>
-                    Customer {customerResponse} this quote
+                    Customer {customerResponse} this estimate
                   </div>
                   <div style={{ fontSize: "11.5px", color: "var(--text-muted)", marginTop: "1px" }}>Job status updated to {effectiveStatus}</div>
                 </div>
@@ -613,20 +665,20 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
             </div>
             <div style={{ display: "flex", gap: "8px" }}>
               <button style={{ padding: "8px 16px", border: "1px solid var(--border)", borderRadius: "8px", background: "rgba(255,255,255,0.05)", fontSize: "13px", cursor: "pointer", color: "var(--text-secondary)" }}>Download Parts List</button>
-              <button onClick={() => setTab("Quote")} style={{ background: "var(--orange)", color: "#fff", border: "none", borderRadius: "8px", padding: "8px 18px", fontSize: "13px", fontWeight: 600, cursor: "pointer" }}>Continue to Quote</button>
+              <button onClick={() => setTab("Estimate")} style={{ background: "var(--orange)", color: "#fff", border: "none", borderRadius: "8px", padding: "8px 18px", fontSize: "13px", fontWeight: 600, cursor: "pointer" }}>Continue to Estimate</button>
             </div>
           </>
         )}
-        {tab === "Quote" && (
+        {tab === "Estimate" && (
           <>
             <div>
-              <p style={{ fontSize: "13px", fontWeight: 600, color: "var(--text)" }}>Review the quote</p>
-              <p style={{ fontSize: "12px", color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>Adjust labour and margin as needed</p>
+              <p style={{ fontSize: "13px", fontWeight: 600, color: "var(--text)" }}>Review the estimate</p>
+              <p style={{ fontSize: "12px", color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>Adjust labour, call-out, and margin as needed</p>
             </div>
             <div style={{ display: "flex", gap: "8px" }}>
-              <button style={{ padding: "8px 16px", border: "1px solid var(--border)", borderRadius: "8px", background: "rgba(255,255,255,0.05)", fontSize: "13px", cursor: "pointer", color: "var(--text-secondary)" }}>Download Quote</button>
+              <button style={{ padding: "8px 16px", border: "1px solid var(--border)", borderRadius: "8px", background: "rgba(255,255,255,0.05)", fontSize: "13px", cursor: "pointer", color: "var(--text-secondary)" }}>Download Estimate</button>
               <button onClick={() => setShowShareModal(true)} style={{ background: "var(--orange)", color: "#fff", border: "none", borderRadius: "8px", padding: "8px 18px", fontSize: "13px", fontWeight: 600, cursor: "pointer" }}>
-                {customerResponse ? "View response" : "Share Quote"}
+                {customerResponse ? "View response" : "Share Estimate"}
               </button>
             </div>
           </>

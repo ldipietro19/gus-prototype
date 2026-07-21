@@ -186,6 +186,31 @@ export const defaultPricingSettings: PricingSettings = {
   quoteDetailLevel: "detailed",
 };
 
+// ── Per-job estimate overrides ────────────────────────────────────────────────
+export interface EstimateOverride {
+  estimateNotes: string;     // customer-facing scope (separate from internal job description)
+  includeCallOut: boolean;   // whether to add call-out fee on this estimate
+}
+
+const defaultEstimateOverride: EstimateOverride = {
+  estimateNotes: "",
+  includeCallOut: true,
+};
+
+export function loadEstimateOverride(jobId: string): EstimateOverride {
+  if (typeof window === "undefined") return defaultEstimateOverride;
+  try {
+    const stored = localStorage.getItem(`gus_estimate_${jobId}`);
+    if (stored) return { ...defaultEstimateOverride, ...JSON.parse(stored) };
+  } catch {}
+  return defaultEstimateOverride;
+}
+
+export function saveEstimateOverride(jobId: string, patch: Partial<EstimateOverride>) {
+  const current = loadEstimateOverride(jobId);
+  localStorage.setItem(`gus_estimate_${jobId}`, JSON.stringify({ ...current, ...patch }));
+}
+
 const SETTINGS_KEY = "gus_settings";
 const LOGO_KEY = "gus_logo";
 
