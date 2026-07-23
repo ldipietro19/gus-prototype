@@ -27,6 +27,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
   const [apprenticeHours, setApprenticeHours] = useState(0);
   const [includeApprentice, setIncludeApprentice] = useState(false);
   const [callOutFee, setCallOutFee] = useState(defaultPricingSettings.callOutFee);
+  const [includeCallOut, setIncludeCallOut] = useState(true);
   const [primaryEquipmentMarkup, setPrimaryEquipmentMarkup] = useState(defaultPricingSettings.primaryEquipmentMarkup);
   const [accessoriesMarkup, setAccessoriesMarkup] = useState(defaultPricingSettings.accessoriesMarkup);
   const [answers, setAnswers] = useState<Record<number, string>>(
@@ -124,7 +125,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
 
   const journeymanTotal = includeJourneyman ? journeymanRate * journeymanHours : 0;
   const apprenticeTotal = includeApprentice ? apprenticeRate * apprenticeHours : 0;
-  const totalLabour     = journeymanTotal + apprenticeTotal + callOutFee;
+  const totalLabour     = journeymanTotal + apprenticeTotal + (includeCallOut ? callOutFee : 0);
   const subtotal        = totalMaterialsCost + totalLabour;
 
   // Tax engine — reads province from settings (loaded in useEffect)
@@ -515,13 +516,23 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
                 </div>
               </div>
 
-              {/* Call-out fee (always included) */}
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "11px 20px", borderBottom: "1px solid var(--border)" }}>
-                <div>
+              {/* Call-out fee */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "11px 20px", borderBottom: "1px solid var(--border)", opacity: includeCallOut ? 1 : 0.5 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                  <button onClick={() => setIncludeCallOut(v => !v)}
+                    style={{ width: "34px", height: "19px", borderRadius: "10px", background: includeCallOut ? "var(--orange)" : "#3D6480", border: "none", cursor: "pointer", position: "relative", flexShrink: 0, transition: "background 0.2s" }}>
+                    <span style={{ position: "absolute", top: "2px", left: includeCallOut ? "17px" : "2px", width: "15px", height: "15px", borderRadius: "50%", background: "white", transition: "left 0.2s", display: "block" }} />
+                  </button>
                   <span style={{ fontSize: "13.5px", color: "var(--text-secondary)" }}>Call-out fee</span>
-                  <span style={{ fontSize: "11px", color: "var(--text-muted)", fontFamily: "var(--font-mono)", marginLeft: "8px" }}>from settings</span>
+                  <span style={{ fontSize: "11px", color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>from settings</span>
                 </div>
-                <span style={{ fontSize: "13.5px", minWidth: "110px", textAlign: "right", fontFamily: "var(--font-mono)", color: "var(--text)" }}>${callOutFee.toFixed(2)} CAD</span>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <div style={{ display: "flex", alignItems: "center", border: "1px solid var(--border)", borderRadius: "6px", overflow: "hidden" }}>
+                    <span style={prefixStyle}>$</span>
+                    <input type="number" value={callOutFee} onChange={e => setCallOutFee(+e.target.value)} style={{ ...inputStyle, width: "72px", padding: "4px 8px", border: "none", borderRadius: 0, textAlign: "right" }} />
+                  </div>
+                  <span style={{ fontSize: "13.5px", minWidth: "110px", textAlign: "right", fontFamily: "var(--font-mono)", color: "var(--text)", textDecoration: includeCallOut ? "none" : "line-through" }}>${callOutFee.toFixed(2)} CAD</span>
+                </div>
               </div>
 
               {/* Total Labour */}
