@@ -57,7 +57,9 @@ export default function HomePage() {
   useEffect(() => {
     setGreeting(pickGreeting(new Date().getHours()));
     const s = loadPricingSettings();
-    if (s.email) {
+    if (s.displayName && s.displayName.trim()) {
+      setFirstName(s.displayName.trim());
+    } else if (s.email) {
       const raw = s.email.split("@")[0].split(/[._-]/)[0];
       setFirstName(raw.charAt(0).toUpperCase() + raw.slice(1));
     }

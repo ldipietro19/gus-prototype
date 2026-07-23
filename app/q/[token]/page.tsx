@@ -5,7 +5,6 @@ import { mockJobs, mockCustomers, defaultPricingSettings, loadPricingSettings, l
 import { calculateTax, formatTaxLabel } from "@/lib/taxEngine";
 
 type Response = "pending" | "accepted" | "declined";
-type DetailLevel = "detailed" | "summary" | "clean";
 
 export default function CustomerQuotePage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = use(params);
@@ -20,15 +19,15 @@ export default function CustomerQuotePage({ params }: { params: Promise<{ token:
   const [quoteValidDays, setQuoteValidDays] = useState(defaultPricingSettings.quoteValidDays);
   const [termsText, setTermsText] = useState(defaultPricingSettings.termsText);
   const [province, setProvince] = useState(defaultPricingSettings.province);
-  const [standardLaborRate, setStandardLaborRate] = useState(defaultPricingSettings.standardLaborRate);
+  const [journeymanRate, setJourneymanRate] = useState(defaultPricingSettings.journeymanRate);
   const [callOutFee, setCallOutFee] = useState(defaultPricingSettings.callOutFee);
+  const [primaryEquipmentMarkup, setPrimaryEquipmentMarkup] = useState(defaultPricingSettings.primaryEquipmentMarkup);
+  const [accessoriesMarkup, setAccessoriesMarkup] = useState(defaultPricingSettings.accessoriesMarkup);
   const [paymentTerms, setPaymentTerms] = useState(defaultPricingSettings.paymentTerms);
   const [showWarranty, setShowWarranty] = useState(defaultPricingSettings.showWarranty);
   const [labourWarranty, setLabourWarranty] = useState(defaultPricingSettings.labourWarranty);
   const [partsWarranty, setPartsWarranty] = useState(defaultPricingSettings.partsWarranty);
-  const [quoteDetailLevel, setQuoteDetailLevel] = useState<DetailLevel>("detailed");
   const [estimateNotes, setEstimateNotes] = useState("");
-  const [includeCallOut, setIncludeCallOut] = useState(true);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
 
   const job = mockJobs.find(j => j.id === token);
@@ -45,16 +44,16 @@ export default function CustomerQuotePage({ params }: { params: Promise<{ token:
     setQuoteValidDays(s.quoteValidDays);
     setTermsText(s.termsText);
     setProvince(s.province);
-    setStandardLaborRate(s.standardLaborRate);
+    setJourneymanRate(s.journeymanRate ?? 113);
     setCallOutFee(s.callOutFee);
+    setPrimaryEquipmentMarkup(s.primaryEquipmentMarkup ?? 30);
+    setAccessoriesMarkup(s.accessoriesMarkup ?? 20);
     setPaymentTerms(s.paymentTerms);
     setShowWarranty(s.showWarranty);
     setLabourWarranty(s.labourWarranty);
     setPartsWarranty(s.partsWarranty);
-    setQuoteDetailLevel(s.quoteDetailLevel ?? "detailed");
     const override = loadEstimateOverride(token);
     setEstimateNotes(override.estimateNotes);
-    setIncludeCallOut(override.includeCallOut);
     setLogoUrl(loadLogo());
     setLoaded(true);
   }, [token]);
@@ -68,15 +67,16 @@ export default function CustomerQuotePage({ params }: { params: Promise<{ token:
 
   if (!loaded) return null;
 
-  // Financials
-  const actualLaborRate = job ? (job.laborRate ?? standardLaborRate) : standardLaborRate;
-  const materialsCost = job?.parts?.flatMap(g => g.items).reduce((s, i) => s + i.qty * i.unit, 0) ?? 0;
-  const margin = job?.margin ?? defaultPricingSettings.defaultMarkup;
-  const materialsWithMargin = materialsCost * (1 + margin / 100);
-  const labour = actualLaborRate * ((job?.laborHours) ?? 2);
-  const callOut = includeCallOut ? callOutFee : 0;
-  const subtotal = materialsWithMargin + labour + callOut;
-  const taxResult = calculateTax(province, materialsWithMargin, labour + callOut);
+  // Financials — split markup by BOM category
+  const primaryItems = job?.parts?.filter(g => g.category === "Primary Equipment").flatMap(g => g.items) ?? [];
+  const otherItems   = job?.parts?.filter(g => g.category !== "Primary Equipment").flatMap(g => g.items) ?? [];
+  const primaryCost  = primaryItems.reduce((s, i) => s + i.qty * i.unit, 0);
+  const otherCost    = otherItems.reduce((s, i) => s + i.qty * i.unit, 0);
+  const materialsWithMarkup = primaryCost * (1 + primaryEquipmentMarkup / 100) + otherCost * (1 + accessoriesMarkup / 100);
+  const labour = (job?.laborRate ?? journeymanRate) * ((job?.laborHours) ?? 2);
+  const labourAndCallOut = labour + callOutFee;
+  const subtotal = materialsWithMarkup + labourAndCallOut;
+  const taxResult = calculateTax(province, materialsWithMarkup, labourAndCallOut);
   const grandTotal = subtotal + taxResult.totalTax;
 
   // Dates
@@ -271,167 +271,50 @@ export default function CustomerQuotePage({ params }: { params: Promise<{ token:
           {/* Divider */}
           <div style={{ height: "1px", background: border, margin: "0 48px" }} />
 
-          {/* ═══ DETAILED format ═══ */}
-          {quoteDetailLevel === "detailed" && (
-            <div className="q-pad" style={{ padding: "28px 48px" }}>
-
-              {/* Call-out */}
-              {callOut > 0 && (
-                <>
-                  <div style={secLabel}>// Call-Out</div>
-                  <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "20px", fontSize: "13.5px" }}>
-                    <thead><tr>
-                      <th style={{ ...thS, width: "55%" }}>Description</th>
-                      <th style={thS}>Qty</th>
-                      <th style={thS}>Unit</th>
-                      <th style={{ ...thS, textAlign: "right" }}>Amount</th>
-                    </tr></thead>
-                    <tbody><tr>
-                      <td style={{ ...tdS, color: text, fontWeight: 500 }}>Call-out fee</td>
-                      <td style={tdS}>1</td>
-                      <td style={tdS}>—</td>
-                      <td style={tdAmt}>${callOut.toFixed(2)}</td>
-                    </tr></tbody>
-                  </table>
-                </>
-              )}
-
-              {/* Labour */}
-              {labour > 0 && (
-                <>
-                  <div style={secLabel}>// Labour</div>
-                  <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "20px", fontSize: "13.5px" }}>
-                    <thead><tr>
-                      <th style={{ ...thS, width: "55%" }}>Description</th>
-                      <th style={thS}>Qty</th>
-                      <th style={thS}>Unit</th>
-                      <th style={{ ...thS, textAlign: "right" }}>Amount</th>
-                    </tr></thead>
-                    <tbody><tr>
-                      <td style={{ ...tdS, color: text, fontWeight: 500 }}>Installation labour</td>
-                      <td style={tdS}>{job.laborHours ?? 2}</td>
-                      <td style={tdS}>hrs @ ${actualLaborRate}</td>
-                      <td style={tdAmt}>${labour.toFixed(2)}</td>
-                    </tr></tbody>
-                  </table>
-                </>
-              )}
-
-              {/* Parts by category */}
-              {job.parts?.map(group => (
-                <div key={group.category}>
-                  <div style={secLabel}>// {group.category}</div>
-                  <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "20px", fontSize: "13.5px" }}>
-                    <thead><tr>
-                      <th style={{ ...thS, width: "55%" }}>Description</th>
-                      <th style={thS}>Qty</th>
-                      <th style={thS}>Unit</th>
-                      <th style={{ ...thS, textAlign: "right" }}>Amount</th>
-                    </tr></thead>
-                    <tbody>
-                      {group.items.map(item => {
-                        const amt = item.qty * item.unit * (1 + margin / 100);
-                        return (
-                          <tr key={item.name}>
-                            <td style={{ ...tdS, color: text, fontWeight: 500 }}>{item.name}</td>
-                            <td style={tdS}>{item.qty}</td>
-                            <td style={tdS}>ea</td>
-                            <td style={tdAmt}>${amt.toFixed(2)}</td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* ═══ SUMMARY format ═══ */}
-          {quoteDetailLevel === "summary" && (
-            <div className="q-pad" style={{ padding: "28px 48px" }}>
-              <div style={secLabel}>// Pricing</div>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13.5px", marginTop: "4px" }}>
-                <tbody>
-                  {callOut > 0 && (
+          {/* ═══ SUMMARY format (only format) ═══ */}
+          <div className="q-pad" style={{ padding: "28px 48px" }}>
+            <div style={secLabel}>// Pricing</div>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13.5px", marginTop: "4px" }}>
+              <tbody>
+                <tr>
+                  <td style={{ ...tdS, color: text, fontWeight: 500 }}>Call-out</td>
+                  <td style={tdAmt}>${callOutFee.toFixed(2)}</td>
+                </tr>
+                <tr>
+                  <td style={{ ...tdS, color: text, fontWeight: 500 }}>Labour</td>
+                  <td style={tdAmt}>${labour.toFixed(2)}</td>
+                </tr>
+                <tr>
+                  <td style={{ ...tdS, fontSize: "12px", color: text3, paddingTop: "1px", paddingBottom: "8px", borderBottom: "1px solid #F5F5F5" }}>
+                    {job.laborHours ?? 2} hrs @ ${job.laborRate ?? journeymanRate}/hr
+                  </td>
+                  <td style={{ ...tdS, borderBottom: "1px solid #F5F5F5" }} />
+                </tr>
+                {materialsWithMarkup > 0 && (
+                  <>
                     <tr>
-                      <td style={{ ...tdS, color: text, fontWeight: 500 }}>Call-out</td>
-                      <td style={tdAmt}>${callOut.toFixed(2)}</td>
+                      <td style={{ ...tdS, color: text, fontWeight: 500 }}>Materials &amp; Equipment</td>
+                      <td style={tdAmt}>${materialsWithMarkup.toFixed(2)}</td>
                     </tr>
-                  )}
-                  <tr>
-                    <td style={{ ...tdS, color: text, fontWeight: 500 }}>Labour</td>
-                    <td style={tdAmt}>${labour.toFixed(2)}</td>
-                  </tr>
-                  <tr>
-                    <td style={{ ...tdS, fontSize: "12px", color: text3, paddingTop: "1px", paddingBottom: "8px", borderBottom: "1px solid #F5F5F5" }}>
-                      {job.laborHours ?? 2} hrs @ ${actualLaborRate}/hr
-                    </td>
-                    <td style={{ ...tdS, borderBottom: "1px solid #F5F5F5" }} />
-                  </tr>
-                  {materialsCost > 0 && (
-                    <>
-                      <tr>
-                        <td style={{ ...tdS, color: text, fontWeight: 500 }}>Materials</td>
-                        <td style={tdAmt}>${materialsWithMargin.toFixed(2)}</td>
-                      </tr>
-                      <tr>
-                        <td style={{ ...tdS, fontSize: "12px", color: text3, paddingTop: "1px", paddingBottom: "8px", borderBottom: "none" }}>
-                          {job.parts?.[0]?.items[0]?.name.split("(")[0].trim()}{job.parts && job.parts.length > 1 ? ", all fittings and connections included" : ""}
-                        </td>
-                        <td style={{ ...tdS, borderBottom: "none" }} />
-                      </tr>
-                    </>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          {/* ═══ CLEAN format ═══ */}
-          {quoteDetailLevel === "clean" && (
-            <div className="q-pad" style={{ padding: "28px 48px" }}>
-              <div style={secLabel}>// Pricing</div>
-              <div className="q-clean-block" style={{
-                border: `1px solid ${border}`, borderLeft: `4px solid ${orange}`,
-                padding: "24px 28px", marginTop: "16px",
-                display: "flex", alignItems: "center", justifyContent: "space-between", gap: "24px",
-              }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: "14px", color: text, fontWeight: 500, lineHeight: "1.5" }}>
-                    {(() => { const s = estimateNotes || job.description || "Work as discussed"; return s.charAt(0).toUpperCase() + s.slice(1); })()}
-                  </div>
-                  {job.parts?.[0]?.items[0] && (
-                    <div style={{ fontSize: "12.5px", color: text3, marginTop: "4px", lineHeight: "1.6" }}>
-                      {job.parts[0].items[0].name.split("(")[0].trim()} — all labour, parts, and commissioning included
-                    </div>
-                  )}
-                </div>
-                <div className="q-clean-price" style={{ textAlign: "right", flexShrink: 0 }}>
-                  <div style={{ fontSize: "28px", fontWeight: 600, color: text, letterSpacing: "-0.02em", lineHeight: 1 }}>
-                    ${subtotal.toFixed(2)}
-                  </div>
-                  <div style={{ fontFamily: "'DM Mono', monospace", fontSize: "10px", letterSpacing: "0.08em", textTransform: "uppercase", color: text3, marginTop: "4px" }}>+ applicable taxes</div>
-                </div>
-              </div>
-              <div style={{ marginTop: "12px", fontSize: "12px", color: text3, lineHeight: "1.7" }}>
-                {taxResult.lines.filter(l => l.amount > 0).map(l => formatTaxLabel(l)).join(" and ")} apply at time of invoice.
-                Estimated total: ~${grandTotal.toFixed(2)} CAD.
-              </div>
-            </div>
-          )}
+                    <tr>
+                      <td style={{ ...tdS, fontSize: "12px", color: text3, paddingTop: "1px", paddingBottom: "8px", borderBottom: "none" }}>
+                        {job.parts?.[0]?.items[0]?.name.split("(")[0].trim()}{job.parts && job.parts.length > 1 ? ", all fittings and connections included" : ""}
+                      </td>
+                      <td style={{ ...tdS, borderBottom: "none" }} />
+                    </tr>
+                  </>
+                )}
+              </tbody>
+            </table>
+          </div>
 
           {/* ═══ Totals ═══ */}
           <div className="q-totals" style={{ padding: "0 48px 32px", display: "flex", justifyContent: "flex-end" }}>
             <div className="q-totals-inner" style={{ width: "280px" }}>
-              {quoteDetailLevel !== "clean" && (
-                <>
-                  {materialsCost > 0 && totalsRow("Materials", `$${materialsWithMargin.toFixed(2)}`)}
-                  {totalsRow(callOut > 0 ? "Labour & call-out" : "Labour", `$${(labour + callOut).toFixed(2)}`)}
-                  {totalsRow("Subtotal", `$${subtotal.toFixed(2)}`, true)}
-                </>
-              )}
-              {quoteDetailLevel !== "clean" && taxResult.lines.filter(l => l.amount > 0).map(line => (
+              {materialsWithMarkup > 0 && totalsRow("Materials & Equipment", `$${materialsWithMarkup.toFixed(2)}`)}
+              {totalsRow("Labour & call-out", `$${labourAndCallOut.toFixed(2)}`)}
+              {totalsRow("Subtotal", `$${subtotal.toFixed(2)}`, true)}
+              {taxResult.lines.filter(l => l.amount > 0).map(line => (
                 <div key={line.name} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 0", fontSize: "13.5px", color: text2, borderBottom: "1px solid #F5F5F5" }}>
                   <span>{formatTaxLabel(line)}</span>
                   <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "13px" }}>${line.amount.toFixed(2)}</span>
@@ -439,10 +322,8 @@ export default function CustomerQuotePage({ params }: { params: Promise<{ token:
               ))}
               {/* Grand total row */}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 0 0", fontSize: "16px", fontWeight: 600, color: text, borderTop: `2px solid ${orange}`, marginTop: "4px" }}>
-                <span>{quoteDetailLevel === "clean" ? "Job total (before tax)" : "Total"}</span>
-                <span style={{ color: orange }}>
-                  {quoteDetailLevel === "clean" ? `$${subtotal.toFixed(2)} CAD` : `$${grandTotal.toFixed(2)} CAD`}
-                </span>
+                <span>Total</span>
+                <span style={{ color: orange }}>${grandTotal.toFixed(2)} CAD</span>
               </div>
             </div>
           </div>

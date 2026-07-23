@@ -25,6 +25,41 @@
   --blue-bg: rgba(59, 130, 246, 0.15);
 }
 
+/* ── Light mode overrides ─────────────────────────────────────────────────── */
+[data-theme="light"] {
+  color-scheme: light;
+  --bg: #FFFFFF;
+  --bg-page: #EEF3F8;
+  --bg-deep: #DDE5EE;
+  --sidebar-bg: #E1EAF3;
+  --border: rgba(0, 0, 0, 0.09);
+  --border-light: rgba(0, 0, 0, 0.05);
+  --text: #0D1B2E;
+  --text-secondary: #2D4A6E;
+  --text-muted: #5B7A94;
+  --green-bg: rgba(16, 185, 129, 0.12);
+  --blue-bg: rgba(59, 130, 246, 0.12);
+}
+
+[data-theme="light"] body {
+  background-color: var(--bg-page);
+  background-image:
+    linear-gradient(rgba(26, 191, 191, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(26, 191, 191, 0.04) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+[data-theme="light"] input,
+[data-theme="light"] textarea,
+[data-theme="light"] select {
+  background: var(--bg);
+  color: var(--text);
+}
+
+[data-theme="light"] ::-webkit-scrollbar-thumb {
+  background: #94B0C4;
+}
+
 body {
   font-family: var(--font-sans);
   background-color: var(--bg-page);

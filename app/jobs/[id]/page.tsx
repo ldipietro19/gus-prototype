@@ -20,14 +20,18 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
 
   const [tab, setTab] = useState<Tab>("Design");
   const [estimateNotes, setEstimateNotes] = useState("");
-  const [includeCallOut, setIncludeCallOut] = useState(true);
-  const [callOutFeeAmount, setCallOutFeeAmount] = useState(defaultPricingSettings.callOutFee);
+  const [journeymanRate, setJourneymanRate] = useState(defaultPricingSettings.journeymanRate);
+  const [journeymanHours, setJourneymanHours] = useState(job?.laborHours ?? 2);
+  const [includeJourneyman, setIncludeJourneyman] = useState(true);
+  const [apprenticeRate, setApprenticeRate] = useState(defaultPricingSettings.apprenticeRate);
+  const [apprenticeHours, setApprenticeHours] = useState(0);
+  const [includeApprentice, setIncludeApprentice] = useState(false);
+  const [callOutFee, setCallOutFee] = useState(defaultPricingSettings.callOutFee);
+  const [primaryEquipmentMarkup, setPrimaryEquipmentMarkup] = useState(defaultPricingSettings.primaryEquipmentMarkup);
+  const [accessoriesMarkup, setAccessoriesMarkup] = useState(defaultPricingSettings.accessoriesMarkup);
   const [answers, setAnswers] = useState<Record<number, string>>(
     Object.fromEntries((job?.todos ?? []).map((t, i) => [i, t.answer ?? ""]))
   );
-  const [laborRate, setLaborRate] = useState(job?.laborRate ?? 113);
-  const [laborHours, setLaborHours] = useState(job?.laborHours ?? 2);
-  const [margin, setMargin] = useState(job?.margin ?? 30);
   const [province, setProvince] = useState(defaultPricingSettings.province);
   const [pstRegistered, setPstRegistered] = useState(defaultPricingSettings.pstRegistered);
   const [showShareModal, setShowShareModal] = useState(false);
@@ -63,16 +67,17 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
 
     // Apply settings defaults
     const s = loadPricingSettings();
-    if (!job?.laborRate) setLaborRate(s.standardLaborRate);
-    if (!job?.margin) setMargin(s.defaultMarkup);
+    setJourneymanRate(s.journeymanRate ?? 113);
+    setApprenticeRate(s.apprenticeRate ?? 65);
+    setCallOutFee(s.callOutFee);
+    setPrimaryEquipmentMarkup(s.primaryEquipmentMarkup ?? 30);
+    setAccessoriesMarkup(s.accessoriesMarkup ?? 20);
     setProvince(s.province);
     setPstRegistered(s.pstRegistered);
-    setCallOutFeeAmount(s.callOutFee);
 
     if (job?.id) {
       const override = loadEstimateOverride(job.id);
       setEstimateNotes(override.estimateNotes);
-      setIncludeCallOut(override.includeCallOut);
     }
 
     const checkResponse = () => {
@@ -107,15 +112,23 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
     fontSize: "13px", fontWeight: tab === t ? 600 : 400, cursor: "pointer",
   });
 
-  // Financials
-  const materialsCost = job.parts?.flatMap(g => g.items).reduce((s, i) => s + i.qty * i.unit, 0) ?? 0;
-  const materialsWithMargin = materialsCost * (1 + margin / 100);
-  const labour = laborRate * laborHours;
-  const callOut = includeCallOut ? callOutFeeAmount : 0;
-  const subtotal = materialsWithMargin + labour + callOut;
+  // Financials — split BOM by category
+  const primaryItems = job.parts?.filter(g => g.category === "Primary Equipment").flatMap(g => g.items) ?? [];
+  const otherItems   = job.parts?.filter(g => g.category !== "Primary Equipment").flatMap(g => g.items) ?? [];
+  const primaryCost  = primaryItems.reduce((s, i) => s + i.qty * i.unit, 0);
+  const otherCost    = otherItems.reduce((s, i) => s + i.qty * i.unit, 0);
+  const rawMaterialsCost    = primaryCost + otherCost;
+  const primaryMarkupAmt    = primaryCost * (primaryEquipmentMarkup / 100);
+  const accessoriesMarkupAmt = otherCost * (accessoriesMarkup / 100);
+  const totalMaterialsCost  = rawMaterialsCost + primaryMarkupAmt + accessoriesMarkupAmt;
+
+  const journeymanTotal = includeJourneyman ? journeymanRate * journeymanHours : 0;
+  const apprenticeTotal = includeApprentice ? apprenticeRate * apprenticeHours : 0;
+  const totalLabour     = journeymanTotal + apprenticeTotal + callOutFee;
+  const subtotal        = totalMaterialsCost + totalLabour;
 
   // Tax engine — reads province from settings (loaded in useEffect)
-  const taxResult = calculateTax(province, materialsWithMargin, labour + callOut);
+  const taxResult = calculateTax(province, totalMaterialsCost, totalLabour);
   const showPstWarning = PST_PROVINCES.includes(province) && !pstRegistered;
   const grandTotal = subtotal + taxResult.totalTax;
 
@@ -374,7 +387,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
               </tbody>
             </table>
             <div style={{ display: "flex", justifyContent: "flex-end", padding: "12px 12px", borderTop: "1px solid var(--border)" }}>
-              <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--text)", fontFamily: "var(--font-mono)" }}>Materials total &nbsp; ${materialsCost.toFixed(2)}</span>
+              <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--text)", fontFamily: "var(--font-mono)" }}>Materials total &nbsp; ${rawMaterialsCost.toFixed(2)}</span>
             </div>
           </div>
         )}
@@ -413,60 +426,111 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
             <p style={{ fontFamily: "var(--font-mono)", fontSize: "9px", color: "var(--teal)", textTransform: "uppercase", letterSpacing: "0.2em", marginBottom: "8px" }}>// Pricing</p>
             <h2 style={{ fontFamily: "var(--font-bebas)", fontSize: "28px", letterSpacing: "0.04em", marginBottom: "14px", color: "var(--text)" }}>Estimate Summary</h2>
             <div style={{ border: "1px solid var(--border)", borderRadius: "10px", overflow: "hidden", background: "var(--bg)" }}>
-              {[
-                { label: "Materials cost", value: `$${materialsCost.toFixed(2)} CAD`, control: null },
-                { label: "Margin", value: `$${(materialsCost * margin / 100).toFixed(2)} CAD`, control: (
-                  <div style={{ display: "flex", alignItems: "center", border: "1px solid var(--border)", borderRadius: "6px", overflow: "hidden" }}>
-                    <span style={prefixStyle}>%</span>
-                    <input type="number" value={margin} onChange={e => setMargin(+e.target.value)} style={{ ...inputStyle, width: "55px", padding: "5px 8px", border: "none", borderRadius: 0 }} />
-                  </div>
-                )},
-                { label: "Materials w/ margin", value: `$${materialsWithMargin.toFixed(2)} CAD`, control: null },
-              ].map((row, i, arr) => (
-                <div key={row.label} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "13px 20px", borderBottom: `1px solid ${i < arr.length - 1 ? "var(--border-light)" : "var(--border)"}` }}>
-                  <span style={{ fontSize: "14px", color: "var(--text-secondary)" }}>{row.label}</span>
-                  <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                    {row.control}
-                    <span style={{ fontSize: "14px", minWidth: "110px", textAlign: "right", fontFamily: "var(--font-mono)", color: "var(--text)" }}>{row.value}</span>
-                  </div>
-                </div>
-              ))}
 
-              {/* Labour */}
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "13px 20px", borderBottom: "1px solid var(--border-light)" }}>
-                <span style={{ fontSize: "14px", color: "var(--text-secondary)" }}>Labour</span>
-                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              {/* ── Materials section ── */}
+              <div style={{ padding: "7px 20px", background: "rgba(255,255,255,0.02)", borderBottom: "1px solid var(--border)" }}>
+                <span style={{ fontSize: "10px", fontFamily: "var(--font-mono)", color: "var(--text-muted)", letterSpacing: "0.12em", textTransform: "uppercase" }}>Materials</span>
+              </div>
+
+              {/* Raw materials cost */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "11px 20px", borderBottom: "1px solid var(--border-light)" }}>
+                <span style={{ fontSize: "13.5px", color: "var(--text-secondary)" }}>Materials cost</span>
+                <span style={{ fontSize: "13.5px", minWidth: "110px", textAlign: "right", fontFamily: "var(--font-mono)", color: "var(--text)" }}>${rawMaterialsCost.toFixed(2)} CAD</span>
+              </div>
+
+              {/* Primary Equipment Markup */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "11px 20px", borderBottom: "1px solid var(--border-light)" }}>
+                <span style={{ fontSize: "13.5px", color: "var(--text-secondary)" }}>Primary Equipment markup</span>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                   <div style={{ display: "flex", alignItems: "center", border: "1px solid var(--border)", borderRadius: "6px", overflow: "hidden" }}>
-                    <input type="number" value={laborRate} onChange={e => setLaborRate(+e.target.value)} style={{ ...inputStyle, width: "55px", padding: "5px 8px", border: "none", borderRadius: 0 }} />
-                    <span style={{ ...prefixStyle, borderLeft: "1px solid var(--border)", borderRight: "1px solid var(--border)" }}>$/hr</span>
-                    <input type="number" value={laborHours} onChange={e => setLaborHours(+e.target.value)} style={{ ...inputStyle, width: "45px", padding: "5px 8px", border: "none", borderRadius: 0 }} />
+                    <input type="number" value={primaryEquipmentMarkup} onChange={e => setPrimaryEquipmentMarkup(+e.target.value)} style={{ ...inputStyle, width: "48px", padding: "4px 8px", border: "none", borderRadius: 0, textAlign: "right" }} />
+                    <span style={suffixStyle}>%</span>
+                  </div>
+                  <span style={{ fontSize: "13.5px", minWidth: "110px", textAlign: "right", fontFamily: "var(--font-mono)", color: "var(--text)" }}>${primaryMarkupAmt.toFixed(2)} CAD</span>
+                </div>
+              </div>
+
+              {/* Parts & Accessories Markup */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "11px 20px", borderBottom: "1px solid var(--border)" }}>
+                <span style={{ fontSize: "13.5px", color: "var(--text-secondary)" }}>Parts &amp; Accessories markup</span>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <div style={{ display: "flex", alignItems: "center", border: "1px solid var(--border)", borderRadius: "6px", overflow: "hidden" }}>
+                    <input type="number" value={accessoriesMarkup} onChange={e => setAccessoriesMarkup(+e.target.value)} style={{ ...inputStyle, width: "48px", padding: "4px 8px", border: "none", borderRadius: 0, textAlign: "right" }} />
+                    <span style={suffixStyle}>%</span>
+                  </div>
+                  <span style={{ fontSize: "13.5px", minWidth: "110px", textAlign: "right", fontFamily: "var(--font-mono)", color: "var(--text)" }}>${accessoriesMarkupAmt.toFixed(2)} CAD</span>
+                </div>
+              </div>
+
+              {/* Total Materials */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "11px 20px", borderBottom: "1px solid var(--border)", background: "rgba(255,255,255,0.02)" }}>
+                <span style={{ fontSize: "13.5px", fontWeight: 600, color: "var(--text)" }}>Total Materials</span>
+                <span style={{ fontSize: "13.5px", fontWeight: 600, minWidth: "110px", textAlign: "right", fontFamily: "var(--font-mono)", color: "var(--text)" }}>${totalMaterialsCost.toFixed(2)} CAD</span>
+              </div>
+
+              {/* ── Labour section ── */}
+              <div style={{ padding: "7px 20px", background: "rgba(255,255,255,0.02)", borderBottom: "1px solid var(--border)" }}>
+                <span style={{ fontSize: "10px", fontFamily: "var(--font-mono)", color: "var(--text-muted)", letterSpacing: "0.12em", textTransform: "uppercase" }}>Labour</span>
+              </div>
+
+              {/* Journeyman */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "11px 20px", borderBottom: "1px solid var(--border-light)", opacity: includeJourneyman ? 1 : 0.5 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                  <button onClick={() => setIncludeJourneyman(v => !v)}
+                    style={{ width: "34px", height: "19px", borderRadius: "10px", background: includeJourneyman ? "var(--orange)" : "#3D6480", border: "none", cursor: "pointer", position: "relative", flexShrink: 0, transition: "background 0.2s" }}>
+                    <span style={{ position: "absolute", top: "2px", left: includeJourneyman ? "17px" : "2px", width: "15px", height: "15px", borderRadius: "50%", background: "white", transition: "left 0.2s", display: "block" }} />
+                  </button>
+                  <span style={{ fontSize: "13.5px", color: "var(--text-secondary)" }}>Journeyman Labour</span>
+                  <span style={{ fontSize: "11px", color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>from settings</span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <div style={{ display: "flex", alignItems: "center", border: "1px solid var(--border)", borderRadius: "6px", overflow: "hidden" }}>
+                    <input type="number" value={journeymanRate} onChange={e => setJourneymanRate(+e.target.value)} style={{ ...inputStyle, width: "52px", padding: "4px 8px", border: "none", borderRadius: 0, textAlign: "right" }} />
+                    <span style={{ ...suffixStyle, borderLeft: "1px solid var(--border)", borderRight: "1px solid var(--border)" }}>$/hr</span>
+                    <input type="number" value={journeymanHours} onChange={e => setJourneymanHours(+e.target.value)} style={{ ...inputStyle, width: "40px", padding: "4px 8px", border: "none", borderRadius: 0, textAlign: "right" }} />
                     <span style={suffixStyle}>hrs</span>
                   </div>
-                  <span style={{ fontSize: "14px", minWidth: "110px", textAlign: "right", fontFamily: "var(--font-mono)", color: "var(--text)" }}>${labour.toFixed(2)} CAD</span>
+                  <span style={{ fontSize: "13.5px", minWidth: "110px", textAlign: "right", fontFamily: "var(--font-mono)", color: "var(--text)", textDecoration: includeJourneyman ? "none" : "line-through" }}>${(journeymanRate * journeymanHours).toFixed(2)} CAD</span>
                 </div>
               </div>
 
-              {/* Call-out fee toggle */}
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "13px 20px", borderBottom: "1px solid var(--border)" }}>
+              {/* Apprentice */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "11px 20px", borderBottom: "1px solid var(--border-light)", opacity: includeApprentice ? 1 : 0.5 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                  <button onClick={() => setIncludeApprentice(v => !v)}
+                    style={{ width: "34px", height: "19px", borderRadius: "10px", background: includeApprentice ? "var(--orange)" : "#3D6480", border: "none", cursor: "pointer", position: "relative", flexShrink: 0, transition: "background 0.2s" }}>
+                    <span style={{ position: "absolute", top: "2px", left: includeApprentice ? "17px" : "2px", width: "15px", height: "15px", borderRadius: "50%", background: "white", transition: "left 0.2s", display: "block" }} />
+                  </button>
+                  <span style={{ fontSize: "13.5px", color: "var(--text-secondary)" }}>Apprentice Labour</span>
+                  <span style={{ fontSize: "11px", color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>from settings</span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <div style={{ display: "flex", alignItems: "center", border: "1px solid var(--border)", borderRadius: "6px", overflow: "hidden" }}>
+                    <input type="number" value={apprenticeRate} onChange={e => setApprenticeRate(+e.target.value)} style={{ ...inputStyle, width: "52px", padding: "4px 8px", border: "none", borderRadius: 0, textAlign: "right" }} />
+                    <span style={{ ...suffixStyle, borderLeft: "1px solid var(--border)", borderRight: "1px solid var(--border)" }}>$/hr</span>
+                    <input type="number" value={apprenticeHours} onChange={e => setApprenticeHours(+e.target.value)} style={{ ...inputStyle, width: "40px", padding: "4px 8px", border: "none", borderRadius: 0, textAlign: "right" }} />
+                    <span style={suffixStyle}>hrs</span>
+                  </div>
+                  <span style={{ fontSize: "13.5px", minWidth: "110px", textAlign: "right", fontFamily: "var(--font-mono)", color: "var(--text)", textDecoration: includeApprentice ? "none" : "line-through" }}>${(apprenticeRate * apprenticeHours).toFixed(2)} CAD</span>
+                </div>
+              </div>
+
+              {/* Call-out fee (always included) */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "11px 20px", borderBottom: "1px solid var(--border)" }}>
                 <div>
-                  <span style={{ fontSize: "14px", color: includeCallOut ? "var(--text-secondary)" : "var(--text-muted)" }}>Call-out fee</span>
+                  <span style={{ fontSize: "13.5px", color: "var(--text-secondary)" }}>Call-out fee</span>
                   <span style={{ fontSize: "11px", color: "var(--text-muted)", fontFamily: "var(--font-mono)", marginLeft: "8px" }}>from settings</span>
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                  {/* Toggle */}
-                  <button
-                    onClick={() => {
-                      const next = !includeCallOut;
-                      setIncludeCallOut(next);
-                      saveEstimateOverride(job.id, { includeCallOut: next });
-                    }}
-                    style={{ width: "36px", height: "20px", borderRadius: "10px", background: includeCallOut ? "var(--orange)" : "#3D6480", border: "none", cursor: "pointer", position: "relative", flexShrink: 0, transition: "background 0.2s" }}>
-                    <span style={{ position: "absolute", top: "2px", left: includeCallOut ? "18px" : "2px", width: "16px", height: "16px", borderRadius: "50%", background: "white", transition: "left 0.2s", display: "block" }} />
-                  </button>
-                  <span style={{ fontSize: "14px", minWidth: "110px", textAlign: "right", fontFamily: "var(--font-mono)", color: includeCallOut ? "var(--text)" : "var(--text-muted)", textDecoration: includeCallOut ? "none" : "line-through" }}>${callOutFeeAmount.toFixed(2)} CAD</span>
-                </div>
+                <span style={{ fontSize: "13.5px", minWidth: "110px", textAlign: "right", fontFamily: "var(--font-mono)", color: "var(--text)" }}>${callOutFee.toFixed(2)} CAD</span>
               </div>
 
+              {/* Total Labour */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "11px 20px", borderBottom: "1px solid var(--border)", background: "rgba(255,255,255,0.02)" }}>
+                <span style={{ fontSize: "13.5px", fontWeight: 600, color: "var(--text)" }}>Total Labour</span>
+                <span style={{ fontSize: "13.5px", fontWeight: 600, minWidth: "110px", textAlign: "right", fontFamily: "var(--font-mono)", color: "var(--text)" }}>${totalLabour.toFixed(2)} CAD</span>
+              </div>
+
+              {/* Subtotal */}
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "13px 20px", borderBottom: "1px solid var(--border)" }}>
                 <span style={{ fontSize: "14px", color: "var(--text-secondary)" }}>Subtotal</span>
                 <span style={{ fontSize: "14px", minWidth: "110px", textAlign: "right", fontFamily: "var(--font-mono)", color: "var(--text)" }}>${subtotal.toFixed(2)} CAD</span>
@@ -474,7 +538,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
 
               {/* PST registration warning */}
               {showPstWarning && (
-                <div style={{ margin: "0", padding: "10px 20px", background: "rgba(242,106,27,0.08)", borderBottom: "1px solid rgba(242,106,27,0.2)", display: "flex", gap: "10px", alignItems: "flex-start" }}>
+                <div style={{ padding: "10px 20px", background: "rgba(242,106,27,0.08)", borderBottom: "1px solid rgba(242,106,27,0.2)", display: "flex", gap: "10px", alignItems: "flex-start" }}>
                   <span style={{ fontSize: "15px", flexShrink: 0 }}>⚠️</span>
                   <span style={{ fontSize: "12.5px", color: "var(--text-secondary)", lineHeight: 1.5 }}>
                     You may need to register for PST before collecting it from customers.
@@ -485,9 +549,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
               {/* Tax lines from engine — skip $0 lines */}
               {taxResult.lines.filter(line => line.amount > 0).map((line, i, arr) => (
                 <div key={line.name} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "11px 20px", borderBottom: i < arr.length - 1 ? "1px solid var(--border-light)" : "1px solid var(--border)" }}>
-                  <div>
-                    <span style={{ fontSize: "13.5px", color: "var(--text-secondary)" }}>{formatTaxLabel(line)}</span>
-                  </div>
+                  <span style={{ fontSize: "13.5px", color: "var(--text-secondary)" }}>{formatTaxLabel(line)}</span>
                   <span style={{ fontSize: "13.5px", minWidth: "110px", textAlign: "right", fontFamily: "var(--font-mono)", color: "var(--text)" }}>${line.amount.toFixed(2)} CAD</span>
                 </div>
               ))}

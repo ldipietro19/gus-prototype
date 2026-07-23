@@ -4,7 +4,7 @@ import { calculateTax, formatTaxLabel, Province, PST_PROVINCES, PROVINCE_NAMES }
 import { defaultPricingSettings, loadPricingSettings, savePricingSettings, loadLogo, saveLogo, removeLogo } from "@/lib/mockData";
 
 type Tab =
-  | "general" | "business" | "appearance"
+  | "general" | "business"
   | "rates" | "defaults" | "tax" | "delivery" | "terms"
   | "notifications" | "connectors"
   | "people" | "groups" | "roles"
@@ -93,11 +93,36 @@ function LockedPanel({ icon, title, sub }: { icon: string; title: string; sub: s
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
+const CANADA_TIMEZONES = [
+  { tz: "America/Vancouver", label: "America/Vancouver (PT)" },
+  { tz: "America/Edmonton",  label: "America/Edmonton (MT)" },
+  { tz: "America/Winnipeg",  label: "America/Winnipeg (CT)" },
+  { tz: "America/Toronto",   label: "America/Toronto (ET)" },
+  { tz: "America/Halifax",   label: "America/Halifax (AT)" },
+  { tz: "America/St_Johns",  label: "America/St_Johns (NT)" },
+];
+
+const TAX_REFERENCE = [
+  { province: "BC", taxes: [{ name: "GST", rate: "5%", applies: "Materials & Labour" }, { name: "PST", rate: "7%", applies: "Materials only" }] },
+  { province: "AB", taxes: [{ name: "GST", rate: "5%", applies: "Materials & Labour" }] },
+  { province: "SK", taxes: [{ name: "GST", rate: "5%", applies: "Materials & Labour" }, { name: "PST", rate: "6%", applies: "Materials & Labour" }] },
+  { province: "MB", taxes: [{ name: "GST", rate: "5%", applies: "Materials & Labour" }, { name: "RST", rate: "7%", applies: "Materials only" }] },
+  { province: "ON", taxes: [{ name: "HST", rate: "13%", applies: "Materials & Labour" }] },
+  { province: "QC", taxes: [{ name: "GST", rate: "5%", applies: "Materials & Labour" }, { name: "QST", rate: "9.975%", applies: "Materials & Labour" }] },
+  { province: "NB", taxes: [{ name: "HST", rate: "15%", applies: "Materials & Labour" }] },
+  { province: "NS", taxes: [{ name: "HST", rate: "15%", applies: "Materials & Labour" }] },
+  { province: "NL", taxes: [{ name: "HST", rate: "15%", applies: "Materials & Labour" }] },
+  { province: "PE", taxes: [{ name: "HST", rate: "15%", applies: "Materials & Labour" }] },
+  { province: "NT", taxes: [{ name: "GST", rate: "5%", applies: "Materials & Labour" }] },
+  { province: "YT", taxes: [{ name: "GST", rate: "5%", applies: "Materials & Labour" }] },
+  { province: "NU", taxes: [{ name: "GST", rate: "5%", applies: "Materials & Labour" }] },
+];
+
 export default function SettingsPanel() {
   const [tab, setTab] = useState<Tab>("business");
   const [theme, setTheme] = useState<"light" | "dark" | "system">("dark");
   const [toggles, setToggles] = useState<Record<string, boolean>>({
-    calloutWaiver: true, precautionWork: true, warranty: true,
+    precautionWork: true, warranty: true,
     notifyViewed: true, notifyAccepted: true, notifyDeclined: false,
     notifyExpiry: true, weeklySummary: false, compactView: false,
     followupsEnabled: true,
@@ -133,15 +158,17 @@ export default function SettingsPanel() {
 
   const [province, setProvince] = useState<Province>(defaultPricingSettings.province);
   const [pstRegistered, setPstRegistered] = useState(defaultPricingSettings.pstRegistered);
-  const [standardLaborRate, setStandardLaborRate] = useState(defaultPricingSettings.standardLaborRate);
+  const [displayName, setDisplayName] = useState(defaultPricingSettings.displayName);
+  const [timezone, setTimezone] = useState(defaultPricingSettings.timezone);
+  const [journeymanRate, setJourneymanRate] = useState(defaultPricingSettings.journeymanRate);
+  const [apprenticeRate, setApprenticeRate] = useState(defaultPricingSettings.apprenticeRate);
   const [callOutFee, setCallOutFee] = useState(defaultPricingSettings.callOutFee);
-  const [emergencyLaborRate, setEmergencyLaborRate] = useState(defaultPricingSettings.emergencyLaborRate);
-  const [defaultMarkup, setDefaultMarkup] = useState(defaultPricingSettings.defaultMarkup);
+  const [primaryEquipmentMarkup, setPrimaryEquipmentMarkup] = useState(defaultPricingSettings.primaryEquipmentMarkup);
+  const [accessoriesMarkup, setAccessoriesMarkup] = useState(defaultPricingSettings.accessoriesMarkup);
   const [quoteValidDays, setQuoteValidDays] = useState(defaultPricingSettings.quoteValidDays);
   const [paymentTerms, setPaymentTerms] = useState(defaultPricingSettings.paymentTerms);
   const [depositPercent, setDepositPercent] = useState(defaultPricingSettings.depositPercent);
   const [depositThreshold, setDepositThreshold] = useState(defaultPricingSettings.depositThreshold);
-  const [quoteDetailLevel, setQuoteDetailLevel] = useState<"detailed" | "summary" | "clean">(defaultPricingSettings.quoteDetailLevel);
   const [termsText, setTermsText] = useState(defaultPricingSettings.termsText);
   const [labourWarranty, setLabourWarranty] = useState(defaultPricingSettings.labourWarranty);
   const [partsWarranty, setPartsWarranty] = useState(defaultPricingSettings.partsWarranty);
@@ -155,17 +182,24 @@ export default function SettingsPanel() {
     setPhone(s.phone);
     setBizEmail(s.email);
     setLogoUrl(loadLogo());
+    setDisplayName(s.displayName ?? "");
+    setTheme(s.theme ?? "dark");
+    // Auto-detect timezone if not saved
+    const detectedTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const savedTz = s.timezone || detectedTz;
+    const matchedTz = CANADA_TIMEZONES.find(t => t.tz === savedTz)?.tz ?? "America/Vancouver";
+    setTimezone(matchedTz);
     setProvince(s.province);
     setPstRegistered(s.pstRegistered);
-    setStandardLaborRate(s.standardLaborRate);
+    setJourneymanRate(s.journeymanRate ?? 113);
+    setApprenticeRate(s.apprenticeRate ?? 65);
     setCallOutFee(s.callOutFee);
-    setEmergencyLaborRate(s.emergencyLaborRate);
-    setDefaultMarkup(s.defaultMarkup);
+    setPrimaryEquipmentMarkup(s.primaryEquipmentMarkup ?? 30);
+    setAccessoriesMarkup(s.accessoriesMarkup ?? 20);
     setQuoteValidDays(s.quoteValidDays);
     setPaymentTerms(s.paymentTerms);
     setDepositPercent(s.depositPercent);
     setDepositThreshold(s.depositThreshold);
-    setQuoteDetailLevel(s.quoteDetailLevel ?? "detailed");
     setTermsText(s.termsText);
     setLabourWarranty(s.labourWarranty);
     setPartsWarranty(s.partsWarranty);
@@ -177,7 +211,6 @@ export default function SettingsPanel() {
     { group: "Settings", items: [
       { id: "general", label: "General", icon: "ti ti-settings" },
       { id: "business", label: "Business profile", icon: "ti ti-building" },
-      { id: "appearance", label: "Appearance", icon: "ti ti-palette" },
     ]},
     { group: "Pricing & Estimates", items: [
       { id: "rates", label: "Rates", icon: "ti ti-currency-dollar" },
@@ -322,19 +355,34 @@ export default function SettingsPanel() {
         {tab === "general" && (
           <div>
             <h1 style={{ fontSize: "20px", fontWeight: 500, color: "var(--text)", marginBottom: "6px" }}>General</h1>
-            <p style={{ fontSize: "13px", color: "var(--text-muted)", marginBottom: "28px", lineHeight: 1.6 }}>Regional preferences and display defaults across GUS.</p>
+            <p style={{ fontSize: "13px", color: "var(--text-muted)", marginBottom: "28px", lineHeight: 1.6 }}>Personal preferences and display settings.</p>
+
+            {/* Display name */}
+            <div style={sec}>
+              <SectionTitle>Display name</SectionTitle>
+              <Field label="What should GUS call you?">
+                <input
+                  type="text"
+                  value={displayName}
+                  onChange={e => setDisplayName(e.target.value)}
+                  placeholder="e.g. Kelsea"
+                  style={inp}
+                />
+                <div style={hint}>Overrides your email-derived name on the home screen greeting</div>
+              </Field>
+            </div>
+
+            {/* Regional */}
             <div style={sec}>
               <SectionTitle>Regional</SectionTitle>
               <div style={row2}>
                 <Field label="Timezone">
-                  <select style={sel}>
-                    <option>America/Vancouver (PT)</option>
-                    <option>America/Edmonton (MT)</option>
-                    <option>America/Winnipeg (CT)</option>
-                    <option>America/Toronto (ET)</option>
-                    <option>America/Halifax (AT)</option>
-                    <option>America/St_Johns (NT)</option>
+                  <select value={timezone} onChange={e => setTimezone(e.target.value)} style={sel}>
+                    {CANADA_TIMEZONES.map(t => (
+                      <option key={t.tz} value={t.tz}>{t.label}</option>
+                    ))}
                   </select>
+                  <div style={hint}>Auto-detected from your location</div>
                 </Field>
                 <Field label="Currency">
                   <div style={{ display: "flex", alignItems: "center", gap: "8px", height: "36px", padding: "0 12px", border: "1px solid var(--border)", borderRadius: "8px", background: "var(--bg-page)", color: "var(--text-muted)", fontSize: "13.5px" }}>
@@ -361,41 +409,71 @@ export default function SettingsPanel() {
                 </Field>
               </div>
             </div>
-            <SaveBar />
-          </div>
-        )}
 
-        {/* ── APPEARANCE ── */}
-        {tab === "appearance" && (
-          <div>
-            <h1 style={{ fontSize: "20px", fontWeight: 500, color: "var(--text)", marginBottom: "6px" }}>Appearance</h1>
-            <p style={{ fontSize: "13px", color: "var(--text-muted)", marginBottom: "28px", lineHeight: 1.6 }}>Customize how GUS looks on your device.</p>
+            {/* Appearance (merged here) */}
             <div style={sec}>
               <SectionTitle>Theme</SectionTitle>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "12px", marginBottom: "8px" }}>
+              <p style={{ fontSize: "12.5px", color: "var(--text-muted)", marginBottom: "14px", lineHeight: 1.6 }}>
+                Choose how GUS looks on your device. System follows your OS setting.
+              </p>
+              <div style={{ display: "flex", gap: "8px" }}>
                 {([
-                  { id: "light" as const, label: "Light", bg: "#F5F5F3", bar: "#E0E0DE", row: "#D0D0CE" },
-                  { id: "dark" as const, label: "Dark", bg: "#0D1B2E", bar: "#142236", row: "#1e3352" },
-                  { id: "system" as const, label: "System", bg: "linear-gradient(135deg,#F5F5F3 50%,#0D1B2E 50%)", bar: "rgba(128,128,128,0.35)", row: "rgba(128,128,128,0.25)" },
-                ]).map(t => (
-                  <div key={t.id} onClick={() => setTheme(t.id)}
-                    style={{ border: `2px solid ${theme === t.id ? "var(--orange)" : "rgba(255,255,255,0.12)"}`, borderRadius: "12px", overflow: "hidden", cursor: "pointer", transition: "border-color 0.15s" }}>
-                    <div style={{ height: "72px", padding: "8px", display: "flex", flexDirection: "column", gap: "5px", background: t.bg }}>
-                      <div style={{ height: "10px", borderRadius: "4px", background: t.bar }} />
-                      <div style={{ height: "7px", borderRadius: "3px", width: "70%", background: t.row }} />
-                      <div style={{ height: "7px", borderRadius: "3px", width: "50%", background: t.row }} />
-                    </div>
-                    <div style={{ padding: "8px 10px", fontSize: "12.5px", fontWeight: theme === t.id ? 600 : 500, color: theme === t.id ? "var(--orange)" : "var(--text-secondary)", borderTop: "1px solid var(--border)", background: "var(--bg)", textAlign: "center" }}>{t.label}</div>
-                  </div>
-                ))}
+                  { id: "light" as const, label: "Light", icon: (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/>
+                      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+                      <line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/>
+                      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+                    </svg>
+                  )},
+                  { id: "dark" as const, label: "Dark", icon: (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                    </svg>
+                  )},
+                  { id: "system" as const, label: "System", icon: (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
+                    </svg>
+                  )},
+                ]).map(t => {
+                  const active = theme === t.id;
+                  return (
+                    <button key={t.id} onClick={() => {
+                      setTheme(t.id);
+                      savePricingSettings({ theme: t.id });
+                      // Apply immediately
+                      const effective = t.id === "system"
+                        ? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
+                        : t.id;
+                      document.documentElement.setAttribute("data-theme", effective);
+                    }}
+                      style={{
+                        display: "flex", alignItems: "center", gap: "8px",
+                        padding: "9px 16px", borderRadius: "9px",
+                        border: `1.5px solid ${active ? "var(--orange)" : "var(--border)"}`,
+                        background: active ? "rgba(242,106,27,0.10)" : "var(--bg-page)",
+                        color: active ? "var(--orange)" : "var(--text-muted)",
+                        fontSize: "13px", fontWeight: active ? 600 : 400,
+                        cursor: "pointer", transition: "all 0.15s", fontFamily: "var(--font-sans)",
+                      }}>
+                      {t.icon}
+                      {t.label}
+                    </button>
+                  );
+                })}
               </div>
             </div>
+
+            {/* Density */}
             <div style={sec}>
               <SectionTitle>Density</SectionTitle>
               <div style={{ border: "1px solid var(--border)", borderRadius: "10px", overflow: "hidden" }}>
                 <ToggleRow label="Compact view" sub="Tighten spacing in lists and tables. Useful on smaller screens." on={toggles.compactView} onToggle={() => tog("compactView")} last />
               </div>
             </div>
+
+            <SaveBar onSave={() => savePricingSettings({ displayName, timezone, theme })} />
           </div>
         )}
 
@@ -406,23 +484,33 @@ export default function SettingsPanel() {
             <p style={{ fontSize: "13px", color: "var(--text-muted)", marginBottom: "28px", lineHeight: 1.6 }}>GUS pulls these into every estimate automatically. Override any value per job.</p>
             <div style={sec}>
               <SectionTitle>Labour rates</SectionTitle>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "10px", marginBottom: "10px" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "10px" }}>
                 <RateCard label="Call-out fee" value={callOutFee} onChange={setCallOutFee} />
-                <RateCard label="Standard rate / hr" value={standardLaborRate} onChange={setStandardLaborRate} />
-                <RateCard label="Emergency rate / hr" value={emergencyLaborRate} onChange={setEmergencyLaborRate} />
-              </div>
-              <div style={{ border: "1px solid var(--border)", borderRadius: "10px", overflow: "hidden" }}>
-                <ToggleRow label="Allow call-out waiver" sub="Waive the call-out fee when going straight to hourly billing." on={toggles.calloutWaiver} onToggle={() => tog("calloutWaiver")} last />
+                <RateCard label="Journeyman / hr" value={journeymanRate} onChange={setJourneymanRate} />
+                <RateCard label="Apprentice / hr" value={apprenticeRate} onChange={setApprenticeRate} />
               </div>
             </div>
             <div style={sec}>
-              <SectionTitle>Default markup</SectionTitle>
-              <p style={{ fontSize: "12.5px", color: "var(--text-muted)", marginBottom: "14px", lineHeight: 1.6 }}>Applied to all materials on every estimate. Override per job anytime.</p>
-              <div style={{ maxWidth: "200px" }}>
-                <RateCard label="Materials markup %" value={defaultMarkup} onChange={setDefaultMarkup} />
+              <SectionTitle>Materials markup</SectionTitle>
+              <p style={{ fontSize: "12.5px", color: "var(--text-muted)", marginBottom: "14px", lineHeight: 1.6 }}>
+                Two separate markups — one for primary equipment, one for everything else. Both appear as line items on the estimate.
+              </p>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                <div>
+                  <RateCard label="Primary Equipment markup %" value={primaryEquipmentMarkup} onChange={setPrimaryEquipmentMarkup} />
+                  <div style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "6px", fontFamily: "var(--font-mono)", lineHeight: 1.6 }}>
+                    Main unit — RO system, water heater, pump
+                  </div>
+                </div>
+                <div>
+                  <RateCard label="Parts & Accessories markup %" value={accessoriesMarkup} onChange={setAccessoriesMarkup} />
+                  <div style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "6px", fontFamily: "var(--font-mono)", lineHeight: 1.6 }}>
+                    Fittings, valves, tubing, supporting parts
+                  </div>
+                </div>
               </div>
             </div>
-            <SaveBar onSave={() => savePricingSettings({ standardLaborRate, callOutFee, emergencyLaborRate, allowCallOutWaiver: toggles.calloutWaiver, defaultMarkup })} />
+            <SaveBar onSave={() => savePricingSettings({ journeymanRate, apprenticeRate, callOutFee, primaryEquipmentMarkup, accessoriesMarkup })} />
           </div>
         )}
 
@@ -553,6 +641,40 @@ export default function SettingsPanel() {
                   </div>
                 </div>
               </div>
+              {/* Province tax reference */}
+              <div style={sec}>
+                <SectionTitle>Province tax reference</SectionTitle>
+                <div style={{ border: "1px solid var(--border)", borderRadius: "10px", overflow: "hidden" }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "60px 1fr 60px 1fr", padding: "8px 16px", borderBottom: "1px solid var(--border)", background: "rgba(255,255,255,0.02)" }}>
+                    <span style={{ fontSize: "10px", fontFamily: "var(--font-mono)", color: "var(--text-muted)", letterSpacing: "0.1em", textTransform: "uppercase" }}>Prov</span>
+                    <span style={{ fontSize: "10px", fontFamily: "var(--font-mono)", color: "var(--text-muted)", letterSpacing: "0.1em", textTransform: "uppercase" }}>Taxes</span>
+                    <span style={{ fontSize: "10px", fontFamily: "var(--font-mono)", color: "var(--text-muted)", letterSpacing: "0.1em", textTransform: "uppercase" }}>Rate</span>
+                    <span style={{ fontSize: "10px", fontFamily: "var(--font-mono)", color: "var(--text-muted)", letterSpacing: "0.1em", textTransform: "uppercase" }}>Applies to</span>
+                  </div>
+                  {TAX_REFERENCE.map((row, i) => {
+                    const isSelected = row.province === province;
+                    return row.taxes.map((tax, j) => (
+                      <div key={`${row.province}-${j}`} style={{
+                        display: "grid", gridTemplateColumns: "60px 1fr 60px 1fr",
+                        padding: "9px 16px",
+                        borderBottom: i < TAX_REFERENCE.length - 1 || j < row.taxes.length - 1 ? "1px solid var(--border-light)" : "none",
+                        background: isSelected ? "rgba(26,191,191,0.04)" : "transparent",
+                        borderLeft: isSelected ? "2px solid var(--teal)" : "2px solid transparent",
+                      }}>
+                        {j === 0 ? (
+                          <span style={{ fontSize: "12px", fontFamily: "var(--font-mono)", color: isSelected ? "var(--teal)" : "var(--text-secondary)", fontWeight: isSelected ? 600 : 400 }}>
+                            {row.province}
+                          </span>
+                        ) : <span />}
+                        <span style={{ fontSize: "12.5px", color: isSelected ? "var(--teal)" : "var(--text-secondary)" }}>{tax.name}</span>
+                        <span style={{ fontSize: "12px", fontFamily: "var(--font-mono)", color: isSelected ? "var(--teal)" : "var(--text-muted)" }}>{tax.rate}</span>
+                        <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>{tax.applies}</span>
+                      </div>
+                    ));
+                  })}
+                </div>
+              </div>
+
               <SaveBar onSave={() => savePricingSettings({ province, pstRegistered })} />
             </div>
           );
@@ -562,28 +684,20 @@ export default function SettingsPanel() {
         {tab === "delivery" && (
           <div>
             <h1 style={{ fontSize: "20px", fontWeight: 500, color: "var(--text)", marginBottom: "6px" }}>Estimate delivery</h1>
-            <p style={{ fontSize: "13px", color: "var(--text-muted)", marginBottom: "28px", lineHeight: 1.6 }}>Default format and email template used when sending estimates to customers.</p>
+            <p style={{ fontSize: "13px", color: "var(--text-muted)", marginBottom: "28px", lineHeight: 1.6 }}>Email template used when sending estimates to customers.</p>
 
             <div style={sec}>
               <SectionTitle>Quote format</SectionTitle>
-              <p style={{ fontSize: "12.5px", color: "var(--text-muted)", marginBottom: "14px", lineHeight: 1.6 }}>Controls how pricing is shown to customers on the estimate.</p>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "10px" }}>
-                {([
-                  { id: "detailed" as const, label: "Detailed", desc: "Full line items — every part and labour hour visible" },
-                  { id: "summary" as const, label: "Summary", desc: "Category totals with a brief description" },
-                  { id: "clean" as const, label: "Clean", desc: "Single price block — no breakdown shown" },
-                ]).map(opt => (
-                  <div key={opt.id} onClick={() => setQuoteDetailLevel(opt.id)}
-                    style={{
-                      border: `2px solid ${quoteDetailLevel === opt.id ? "var(--orange)" : "rgba(255,255,255,0.12)"}`,
-                      borderRadius: "10px", padding: "14px", cursor: "pointer",
-                      background: quoteDetailLevel === opt.id ? "rgba(242,106,27,0.08)" : "var(--bg-page)",
-                      transition: "border-color 0.15s, background 0.15s",
-                    }}>
-                    <div style={{ fontSize: "13.5px", fontWeight: 500, color: quoteDetailLevel === opt.id ? "var(--orange)" : "var(--text)", marginBottom: "4px" }}>{opt.label}</div>
-                    <div style={{ fontSize: "11.5px", color: "var(--text-muted)", lineHeight: 1.5 }}>{opt.desc}</div>
+              <div style={{ border: "1px solid var(--border)", borderRadius: "10px", padding: "16px 20px", background: "var(--bg)", display: "flex", alignItems: "flex-start", gap: "14px" }}>
+                <div style={{ width: "36px", height: "36px", borderRadius: "8px", background: "rgba(26,191,191,0.12)", border: "1px solid rgba(26,191,191,0.25)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <i className="ti ti-list" style={{ fontSize: "18px", color: "var(--teal)" }} />
+                </div>
+                <div>
+                  <div style={{ fontSize: "14px", fontWeight: 500, color: "var(--text)", marginBottom: "4px" }}>Summary</div>
+                  <div style={{ fontSize: "12.5px", color: "var(--text-muted)", lineHeight: 1.6 }}>
+                    Estimates are sent in summary format — materials total, labour total, taxes, and grand total. No individual part names shown to the customer.
                   </div>
-                ))}
+                </div>
               </div>
             </div>
 
@@ -602,7 +716,7 @@ export default function SettingsPanel() {
                 <Field label="Reply-to email"><input type="email" defaultValue="kelsea@reputationplumbing.ca" style={inp} /></Field>
               </div>
             </div>
-            <SaveBar onSave={() => savePricingSettings({ quoteDetailLevel })} />
+            <SaveBar />
           </div>
         )}
 

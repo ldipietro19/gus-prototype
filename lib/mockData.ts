@@ -129,6 +129,10 @@ export const mockBusinessProfile: BusinessProfile = {
 
 // ── Pricing Settings ─────────────────────────────────────────────────────────
 export interface PricingSettings {
+  // Display / personalisation
+  displayName: string;
+  theme: "light" | "dark" | "system";
+  timezone: string;
   // Business profile
   companyName: string;
   gstNumber: string;
@@ -138,11 +142,12 @@ export interface PricingSettings {
   province: import("./taxEngine").Province;
   pstRegistered: boolean;
   // Rates
-  standardLaborRate: number;
+  journeymanRate: number;
+  apprenticeRate: number;
   callOutFee: number;
-  emergencyLaborRate: number;
-  allowCallOutWaiver: boolean;
-  defaultMarkup: number;
+  // Markup (applied to materials on estimate)
+  primaryEquipmentMarkup: number;  // applied to "Primary Equipment" category
+  accessoriesMarkup: number;        // applied to all other categories
   // Defaults
   quoteValidDays: number;
   paymentTerms: string;
@@ -156,22 +161,23 @@ export interface PricingSettings {
   showWarranty: boolean;
   pricingBufferFrom: number;
   pricingBufferTo: number;
-  // Quote format
-  quoteDetailLevel: "detailed" | "summary" | "clean";
 }
 
 export const defaultPricingSettings: PricingSettings = {
+  displayName: "",
+  theme: "dark",
+  timezone: "",
   companyName: "LC Plumbing Co",
   gstNumber: "715748331RT0001",
   phone: "778-840-1388",
   email: "kelsea@repplumbing.net",
   province: "BC",
   pstRegistered: true,
-  standardLaborRate: 113,
+  journeymanRate: 113,
+  apprenticeRate: 65,
   callOutFee: 150,
-  emergencyLaborRate: 210,
-  allowCallOutWaiver: true,
-  defaultMarkup: 30,
+  primaryEquipmentMarkup: 30,
+  accessoriesMarkup: 20,
   quoteValidDays: 30,
   paymentTerms: "Due on completion",
   depositPercent: 50,
@@ -183,18 +189,15 @@ export const defaultPricingSettings: PricingSettings = {
   showWarranty: true,
   pricingBufferFrom: 5,
   pricingBufferTo: 10,
-  quoteDetailLevel: "detailed",
 };
 
 // ── Per-job estimate overrides ────────────────────────────────────────────────
 export interface EstimateOverride {
   estimateNotes: string;     // customer-facing scope (separate from internal job description)
-  includeCallOut: boolean;   // whether to add call-out fee on this estimate
 }
 
 const defaultEstimateOverride: EstimateOverride = {
   estimateNotes: "",
-  includeCallOut: true,
 };
 
 export function loadEstimateOverride(jobId: string): EstimateOverride {
@@ -229,7 +232,19 @@ export function loadPricingSettings(): PricingSettings {
   if (typeof window === "undefined") return defaultPricingSettings;
   try {
     const stored = localStorage.getItem(SETTINGS_KEY);
-    if (stored) return { ...defaultPricingSettings, ...JSON.parse(stored) };
+    if (stored) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const parsed: any = JSON.parse(stored);
+      // Migrate old field names to new ones
+      if (!parsed.journeymanRate && parsed.standardLaborRate) parsed.journeymanRate = parsed.standardLaborRate;
+      if (!parsed.apprenticeRate) parsed.apprenticeRate = defaultPricingSettings.apprenticeRate;
+      if (!parsed.primaryEquipmentMarkup && parsed.defaultMarkup) parsed.primaryEquipmentMarkup = parsed.defaultMarkup;
+      if (!parsed.accessoriesMarkup) parsed.accessoriesMarkup = defaultPricingSettings.accessoriesMarkup;
+      if (!parsed.displayName) parsed.displayName = "";
+      if (!parsed.theme) parsed.theme = "dark";
+      if (!parsed.timezone) parsed.timezone = "";
+      return { ...defaultPricingSettings, ...parsed };
+    }
   } catch {}
   return defaultPricingSettings;
 }
