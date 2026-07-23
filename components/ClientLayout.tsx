@@ -4,28 +4,31 @@ import Sidebar from "./Sidebar";
 import SettingsModal from "./SettingsModal";
 import { loadPricingSettings } from "@/lib/mockData";
 
-function applyTheme() {
+function applyDisplaySettings() {
   const s = loadPricingSettings();
+  // Theme
   const t = s.theme ?? "dark";
   const effective =
     t === "system"
       ? window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"
       : t;
   document.documentElement.setAttribute("data-theme", effective);
+  // Compact view
+  document.documentElement.setAttribute("data-compact", s.compactView ? "true" : "false");
 }
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   useEffect(() => {
-    applyTheme();
+    applyDisplaySettings();
 
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    window.addEventListener("gus-settings-changed", applyTheme);
-    mq.addEventListener("change", applyTheme);
+    window.addEventListener("gus-settings-changed", applyDisplaySettings);
+    mq.addEventListener("change", applyDisplaySettings);
     return () => {
-      window.removeEventListener("gus-settings-changed", applyTheme);
-      mq.removeEventListener("change", applyTheme);
+      window.removeEventListener("gus-settings-changed", applyDisplaySettings);
+      mq.removeEventListener("change", applyDisplaySettings);
     };
   }, []);
 

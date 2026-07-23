@@ -133,6 +133,7 @@ export interface PricingSettings {
   displayName: string;
   theme: "light" | "dark" | "system";
   timezone: string;
+  compactView: boolean;
   // Business profile
   companyName: string;
   gstNumber: string;
@@ -167,6 +168,7 @@ export const defaultPricingSettings: PricingSettings = {
   displayName: "",
   theme: "dark",
   timezone: "",
+  compactView: false,
   companyName: "LC Plumbing Co",
   gstNumber: "715748331RT0001",
   phone: "778-840-1388",
@@ -243,6 +245,7 @@ export function loadPricingSettings(): PricingSettings {
       if (!parsed.displayName) parsed.displayName = "";
       if (!parsed.theme) parsed.theme = "dark";
       if (!parsed.timezone) parsed.timezone = "";
+      if (parsed.compactView === undefined) parsed.compactView = false;
       return { ...defaultPricingSettings, ...parsed };
     }
   } catch {}

@@ -102,21 +102,27 @@ const CANADA_TIMEZONES = [
   { tz: "America/St_Johns",  label: "America/St_Johns (NT)" },
 ];
 
-const TAX_REFERENCE = [
-  { province: "BC", taxes: [{ name: "GST", rate: "5%", applies: "Materials & Labour" }, { name: "PST", rate: "7%", applies: "Materials only" }] },
-  { province: "AB", taxes: [{ name: "GST", rate: "5%", applies: "Materials & Labour" }] },
-  { province: "SK", taxes: [{ name: "GST", rate: "5%", applies: "Materials & Labour" }, { name: "PST", rate: "6%", applies: "Materials & Labour" }] },
-  { province: "MB", taxes: [{ name: "GST", rate: "5%", applies: "Materials & Labour" }, { name: "RST", rate: "7%", applies: "Materials only" }] },
-  { province: "ON", taxes: [{ name: "HST", rate: "13%", applies: "Materials & Labour" }] },
-  { province: "QC", taxes: [{ name: "GST", rate: "5%", applies: "Materials & Labour" }, { name: "QST", rate: "9.975%", applies: "Materials & Labour" }] },
-  { province: "NB", taxes: [{ name: "HST", rate: "15%", applies: "Materials & Labour" }] },
-  { province: "NS", taxes: [{ name: "HST", rate: "15%", applies: "Materials & Labour" }] },
-  { province: "NL", taxes: [{ name: "HST", rate: "15%", applies: "Materials & Labour" }] },
-  { province: "PE", taxes: [{ name: "HST", rate: "15%", applies: "Materials & Labour" }] },
-  { province: "NT", taxes: [{ name: "GST", rate: "5%", applies: "Materials & Labour" }] },
-  { province: "YT", taxes: [{ name: "GST", rate: "5%", applies: "Materials & Labour" }] },
-  { province: "NU", taxes: [{ name: "GST", rate: "5%", applies: "Materials & Labour" }] },
-];
+function getProvinceTaxRules(p: Province): { name: string; rate: string; base: "full" | "materials"; note?: string }[] {
+  if (p === "ON") return [{ name: "HST", rate: "13%", base: "full" }];
+  if (["NB", "NS", "NL", "PE"].includes(p)) return [{ name: "HST", rate: "15%", base: "full" }];
+  if (p === "QC") return [
+    { name: "GST", rate: "5%", base: "full" },
+    { name: "QST", rate: "9.975%", base: "full" },
+  ];
+  if (p === "SK") return [
+    { name: "GST", rate: "5%", base: "full" },
+    { name: "PST", rate: "6%", base: "full", note: "SK is unusual — PST applies to both materials and labour" },
+  ];
+  if (p === "BC") return [
+    { name: "GST", rate: "5%", base: "full" },
+    { name: "PST", rate: "7%", base: "materials", note: "Labour is PST-exempt in BC" },
+  ];
+  if (p === "MB") return [
+    { name: "GST", rate: "5%", base: "full" },
+    { name: "RST", rate: "7%", base: "materials", note: "Labour is RST-exempt in MB" },
+  ];
+  return [{ name: "GST", rate: "5%", base: "full", note: "No provincial sales tax" }];
+}
 
 export default function SettingsPanel() {
   const [tab, setTab] = useState<Tab>("business");
@@ -184,6 +190,7 @@ export default function SettingsPanel() {
     setLogoUrl(loadLogo());
     setDisplayName(s.displayName ?? "");
     setTheme(s.theme ?? "dark");
+    setToggles(t => ({ ...t, compactView: s.compactView ?? false }));
     // Auto-detect timezone if not saved
     const detectedTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
     const savedTz = s.timezone || detectedTz;
@@ -469,11 +476,17 @@ export default function SettingsPanel() {
             <div style={sec}>
               <SectionTitle>Density</SectionTitle>
               <div style={{ border: "1px solid var(--border)", borderRadius: "10px", overflow: "hidden" }}>
-                <ToggleRow label="Compact view" sub="Tighten spacing in lists and tables. Useful on smaller screens." on={toggles.compactView} onToggle={() => tog("compactView")} last />
+                <ToggleRow label="Compact view" sub="Tighten spacing in lists and tables. Useful on smaller screens." on={toggles.compactView} onToggle={() => {
+                  const next = !toggles.compactView;
+                  setToggles(t => ({ ...t, compactView: next }));
+                  // Apply immediately
+                  document.documentElement.setAttribute("data-compact", next ? "true" : "false");
+                  savePricingSettings({ compactView: next });
+                }} last />
               </div>
             </div>
 
-            <SaveBar onSave={() => savePricingSettings({ displayName, timezone, theme })} />
+            <SaveBar onSave={() => savePricingSettings({ displayName, timezone, theme, compactView: toggles.compactView })} />
           </div>
         )}
 
@@ -641,37 +654,26 @@ export default function SettingsPanel() {
                   </div>
                 </div>
               </div>
-              {/* Province tax reference */}
+              {/* How tax is calculated for this province */}
               <div style={sec}>
-                <SectionTitle>Province tax reference</SectionTitle>
+                <SectionTitle>How GUS calculates tax in {PROVINCE_NAMES[province]}</SectionTitle>
                 <div style={{ border: "1px solid var(--border)", borderRadius: "10px", overflow: "hidden" }}>
-                  <div style={{ display: "grid", gridTemplateColumns: "60px 1fr 60px 1fr", padding: "8px 16px", borderBottom: "1px solid var(--border)", background: "rgba(255,255,255,0.02)" }}>
-                    <span style={{ fontSize: "10px", fontFamily: "var(--font-mono)", color: "var(--text-muted)", letterSpacing: "0.1em", textTransform: "uppercase" }}>Prov</span>
-                    <span style={{ fontSize: "10px", fontFamily: "var(--font-mono)", color: "var(--text-muted)", letterSpacing: "0.1em", textTransform: "uppercase" }}>Taxes</span>
-                    <span style={{ fontSize: "10px", fontFamily: "var(--font-mono)", color: "var(--text-muted)", letterSpacing: "0.1em", textTransform: "uppercase" }}>Rate</span>
-                    <span style={{ fontSize: "10px", fontFamily: "var(--font-mono)", color: "var(--text-muted)", letterSpacing: "0.1em", textTransform: "uppercase" }}>Applies to</span>
-                  </div>
-                  {TAX_REFERENCE.map((row, i) => {
-                    const isSelected = row.province === province;
-                    return row.taxes.map((tax, j) => (
-                      <div key={`${row.province}-${j}`} style={{
-                        display: "grid", gridTemplateColumns: "60px 1fr 60px 1fr",
-                        padding: "9px 16px",
-                        borderBottom: i < TAX_REFERENCE.length - 1 || j < row.taxes.length - 1 ? "1px solid var(--border-light)" : "none",
-                        background: isSelected ? "rgba(26,191,191,0.04)" : "transparent",
-                        borderLeft: isSelected ? "2px solid var(--teal)" : "2px solid transparent",
-                      }}>
-                        {j === 0 ? (
-                          <span style={{ fontSize: "12px", fontFamily: "var(--font-mono)", color: isSelected ? "var(--teal)" : "var(--text-secondary)", fontWeight: isSelected ? 600 : 400 }}>
-                            {row.province}
-                          </span>
-                        ) : <span />}
-                        <span style={{ fontSize: "12.5px", color: isSelected ? "var(--teal)" : "var(--text-secondary)" }}>{tax.name}</span>
-                        <span style={{ fontSize: "12px", fontFamily: "var(--font-mono)", color: isSelected ? "var(--teal)" : "var(--text-muted)" }}>{tax.rate}</span>
-                        <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>{tax.applies}</span>
+                  {getProvinceTaxRules(province).map((rule, i, arr) => (
+                    <div key={rule.name} style={{ padding: "14px 16px", borderBottom: i < arr.length - 1 ? "1px solid var(--border-light)" : "none" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: rule.note ? "6px" : "0" }}>
+                        <span style={{ fontSize: "13px", fontWeight: 600, color: "var(--teal)", fontFamily: "var(--font-mono)", minWidth: "52px" }}>{rule.name}</span>
+                        <span style={{ fontSize: "13px", fontFamily: "var(--font-mono)", color: "var(--text-muted)", minWidth: "52px" }}>{rule.rate}</span>
+                        <span style={{ fontSize: "13px", color: "var(--text-secondary)" }}>
+                          {rule.base === "full" ? "Applied to materials + labour" : "Applied to materials only"}
+                        </span>
                       </div>
-                    ));
-                  })}
+                      {rule.note && (
+                        <p style={{ fontSize: "11.5px", color: "var(--text-muted)", marginLeft: "116px", fontFamily: "var(--font-mono)", lineHeight: 1.5 }}>
+                          // {rule.note}
+                        </p>
+                      )}
+                    </div>
+                  ))}
                 </div>
               </div>
 

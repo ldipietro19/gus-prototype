@@ -96,3 +96,16 @@ input, textarea, select {
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #3D6480; border-radius: 3px; }
+
+/* ── Compact view ─────────────────────────────────────────────────────────── */
+[data-compact="true"] table td,
+[data-compact="true"] table th {
+  padding-top: 5px !important;
+  padding-bottom: 5px !important;
+}
+
+[data-compact="true"] table td:first-child,
+[data-compact="true"] table th:first-child {
+  padding-top: 5px !important;
+  padding-bottom: 5px !important;
+}

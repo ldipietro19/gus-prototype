@@ -56,15 +56,22 @@ export default function HomePage() {
 
   useEffect(() => {
     setGreeting(pickGreeting(new Date().getHours()));
-    const s = loadPricingSettings();
-    if (s.displayName && s.displayName.trim()) {
-      setFirstName(s.displayName.trim());
-    } else if (s.email) {
-      const raw = s.email.split("@")[0].split(/[._-]/)[0];
-      setFirstName(raw.charAt(0).toUpperCase() + raw.slice(1));
-    }
     setMounted(true);
     inputRef.current?.focus();
+
+    const readName = () => {
+      const s = loadPricingSettings();
+      if (s.displayName && s.displayName.trim()) {
+        setFirstName(s.displayName.trim());
+      } else if (s.email) {
+        const raw = s.email.split("@")[0].split(/[._-]/)[0];
+        setFirstName(raw.charAt(0).toUpperCase() + raw.slice(1));
+      }
+    };
+
+    readName();
+    window.addEventListener("gus-settings-changed", readName);
+    return () => window.removeEventListener("gus-settings-changed", readName);
   }, []);
 
   const now = new Date();
