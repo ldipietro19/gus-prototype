@@ -196,6 +196,17 @@ export const defaultPricingSettings: PricingSettings = {
 // ── Per-job estimate overrides ────────────────────────────────────────────────
 export interface EstimateOverride {
   estimateNotes: string;     // customer-facing scope (separate from internal job description)
+  // Financial state — mirrors estimate page controls
+  journeymanRate?: number;
+  journeymanHours?: number;
+  includeJourneyman?: boolean;
+  apprenticeRate?: number;
+  apprenticeHours?: number;
+  includeApprentice?: boolean;
+  callOutFee?: number;
+  includeCallOut?: boolean;
+  primaryEquipmentMarkup?: number;
+  accessoriesMarkup?: number;
 }
 
 const defaultEstimateOverride: EstimateOverride = {

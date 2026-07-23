@@ -28,6 +28,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
   const [includeApprentice, setIncludeApprentice] = useState(false);
   const [callOutFee, setCallOutFee] = useState(defaultPricingSettings.callOutFee);
   const [includeCallOut, setIncludeCallOut] = useState(true);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [primaryEquipmentMarkup, setPrimaryEquipmentMarkup] = useState(defaultPricingSettings.primaryEquipmentMarkup);
   const [accessoriesMarkup, setAccessoriesMarkup] = useState(defaultPricingSettings.accessoriesMarkup);
   const [answers, setAnswers] = useState<Record<number, string>>(
@@ -66,20 +67,32 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
   useEffect(() => {
     setShareOrigin(window.location.origin);
 
-    // Apply settings defaults
+    // Apply settings defaults then per-job overrides
     const s = loadPricingSettings();
-    setJourneymanRate(s.journeymanRate ?? 113);
-    setApprenticeRate(s.apprenticeRate ?? 65);
-    setCallOutFee(s.callOutFee);
-    setPrimaryEquipmentMarkup(s.primaryEquipmentMarkup ?? 30);
-    setAccessoriesMarkup(s.accessoriesMarkup ?? 20);
     setProvince(s.province);
     setPstRegistered(s.pstRegistered);
 
     if (job?.id) {
       const override = loadEstimateOverride(job.id);
       setEstimateNotes(override.estimateNotes);
+      setJourneymanRate(override.journeymanRate ?? s.journeymanRate ?? 113);
+      if (override.journeymanHours !== undefined) setJourneymanHours(override.journeymanHours);
+      if (override.includeJourneyman !== undefined) setIncludeJourneyman(override.includeJourneyman);
+      setApprenticeRate(override.apprenticeRate ?? s.apprenticeRate ?? 65);
+      if (override.apprenticeHours !== undefined) setApprenticeHours(override.apprenticeHours);
+      if (override.includeApprentice !== undefined) setIncludeApprentice(override.includeApprentice);
+      setCallOutFee(override.callOutFee ?? s.callOutFee);
+      if (override.includeCallOut !== undefined) setIncludeCallOut(override.includeCallOut);
+      setPrimaryEquipmentMarkup(override.primaryEquipmentMarkup ?? s.primaryEquipmentMarkup ?? 30);
+      setAccessoriesMarkup(override.accessoriesMarkup ?? s.accessoriesMarkup ?? 20);
+    } else {
+      setJourneymanRate(s.journeymanRate ?? 113);
+      setApprenticeRate(s.apprenticeRate ?? 65);
+      setCallOutFee(s.callOutFee);
+      setPrimaryEquipmentMarkup(s.primaryEquipmentMarkup ?? 30);
+      setAccessoriesMarkup(s.accessoriesMarkup ?? 20);
     }
+    setSettingsLoaded(true);
 
     const checkResponse = () => {
       const stored = JSON.parse(localStorage.getItem("gus_responses") || "{}");
@@ -95,6 +108,18 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
       document.removeEventListener("visibilitychange", checkResponse);
     };
   }, [job?.id]);
+
+  // Auto-save financial state to override whenever it changes (after initial load)
+  useEffect(() => {
+    if (!settingsLoaded || !job?.id) return;
+    saveEstimateOverride(job.id, {
+      journeymanRate, journeymanHours, includeJourneyman,
+      apprenticeRate, apprenticeHours, includeApprentice,
+      callOutFee, includeCallOut,
+      primaryEquipmentMarkup, accessoriesMarkup,
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settingsLoaded, journeymanRate, journeymanHours, includeJourneyman, apprenticeRate, apprenticeHours, includeApprentice, callOutFee, includeCallOut, primaryEquipmentMarkup, accessoriesMarkup]);
 
   if (!job) return (
     <div style={{ padding: "60px", textAlign: "center", color: "var(--text-muted)" }}>

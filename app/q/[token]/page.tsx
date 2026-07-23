@@ -20,7 +20,13 @@ export default function CustomerQuotePage({ params }: { params: Promise<{ token:
   const [termsText, setTermsText] = useState(defaultPricingSettings.termsText);
   const [province, setProvince] = useState(defaultPricingSettings.province);
   const [journeymanRate, setJourneymanRate] = useState(defaultPricingSettings.journeymanRate);
+  const [journeymanHours, setJourneymanHours] = useState(2);
+  const [includeJourneyman, setIncludeJourneyman] = useState(true);
+  const [apprenticeRate, setApprenticeRate] = useState(defaultPricingSettings.apprenticeRate);
+  const [apprenticeHours, setApprenticeHours] = useState(0);
+  const [includeApprentice, setIncludeApprentice] = useState(false);
   const [callOutFee, setCallOutFee] = useState(defaultPricingSettings.callOutFee);
+  const [includeCallOut, setIncludeCallOut] = useState(true);
   const [primaryEquipmentMarkup, setPrimaryEquipmentMarkup] = useState(defaultPricingSettings.primaryEquipmentMarkup);
   const [accessoriesMarkup, setAccessoriesMarkup] = useState(defaultPricingSettings.accessoriesMarkup);
   const [paymentTerms, setPaymentTerms] = useState(defaultPricingSettings.paymentTerms);
@@ -44,16 +50,22 @@ export default function CustomerQuotePage({ params }: { params: Promise<{ token:
     setQuoteValidDays(s.quoteValidDays);
     setTermsText(s.termsText);
     setProvince(s.province);
-    setJourneymanRate(s.journeymanRate ?? 113);
-    setCallOutFee(s.callOutFee);
-    setPrimaryEquipmentMarkup(s.primaryEquipmentMarkup ?? 30);
-    setAccessoriesMarkup(s.accessoriesMarkup ?? 20);
     setPaymentTerms(s.paymentTerms);
     setShowWarranty(s.showWarranty);
     setLabourWarranty(s.labourWarranty);
     setPartsWarranty(s.partsWarranty);
     const override = loadEstimateOverride(token);
     setEstimateNotes(override.estimateNotes);
+    setJourneymanRate(override.journeymanRate ?? s.journeymanRate ?? 113);
+    setJourneymanHours(override.journeymanHours ?? job?.laborHours ?? 2);
+    if (override.includeJourneyman !== undefined) setIncludeJourneyman(override.includeJourneyman);
+    setApprenticeRate(override.apprenticeRate ?? s.apprenticeRate ?? 65);
+    setApprenticeHours(override.apprenticeHours ?? 0);
+    if (override.includeApprentice !== undefined) setIncludeApprentice(override.includeApprentice);
+    setCallOutFee(override.callOutFee ?? s.callOutFee);
+    if (override.includeCallOut !== undefined) setIncludeCallOut(override.includeCallOut);
+    setPrimaryEquipmentMarkup(override.primaryEquipmentMarkup ?? s.primaryEquipmentMarkup ?? 30);
+    setAccessoriesMarkup(override.accessoriesMarkup ?? s.accessoriesMarkup ?? 20);
     setLogoUrl(loadLogo());
     setLoaded(true);
   }, [token]);
@@ -73,8 +85,11 @@ export default function CustomerQuotePage({ params }: { params: Promise<{ token:
   const primaryCost  = primaryItems.reduce((s, i) => s + i.qty * i.unit, 0);
   const otherCost    = otherItems.reduce((s, i) => s + i.qty * i.unit, 0);
   const materialsWithMarkup = primaryCost * (1 + primaryEquipmentMarkup / 100) + otherCost * (1 + accessoriesMarkup / 100);
-  const labour = (job?.laborRate ?? journeymanRate) * ((job?.laborHours) ?? 2);
-  const labourAndCallOut = labour + callOutFee;
+  const journeymanTotal = includeJourneyman ? journeymanRate * journeymanHours : 0;
+  const apprenticeTotal = includeApprentice ? apprenticeRate * apprenticeHours : 0;
+  const effectiveCallOut = includeCallOut ? callOutFee : 0;
+  const labour = journeymanTotal + apprenticeTotal;
+  const labourAndCallOut = labour + effectiveCallOut;
   const subtotal = materialsWithMarkup + labourAndCallOut;
   const taxResult = calculateTax(province, materialsWithMarkup, labourAndCallOut);
   const grandTotal = subtotal + taxResult.totalTax;
@@ -276,20 +291,40 @@ export default function CustomerQuotePage({ params }: { params: Promise<{ token:
             <div style={secLabel}>// Pricing</div>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13.5px", marginTop: "4px" }}>
               <tbody>
-                <tr>
-                  <td style={{ ...tdS, color: text, fontWeight: 500 }}>Call-out</td>
-                  <td style={tdAmt}>${callOutFee.toFixed(2)}</td>
-                </tr>
-                <tr>
-                  <td style={{ ...tdS, color: text, fontWeight: 500 }}>Labour</td>
-                  <td style={tdAmt}>${labour.toFixed(2)}</td>
-                </tr>
-                <tr>
-                  <td style={{ ...tdS, fontSize: "12px", color: text3, paddingTop: "1px", paddingBottom: "8px", borderBottom: "1px solid #F5F5F5" }}>
-                    {job.laborHours ?? 2} hrs @ ${job.laborRate ?? journeymanRate}/hr
-                  </td>
-                  <td style={{ ...tdS, borderBottom: "1px solid #F5F5F5" }} />
-                </tr>
+                {includeCallOut && (
+                  <tr>
+                    <td style={{ ...tdS, color: text, fontWeight: 500 }}>Call-out</td>
+                    <td style={tdAmt}>${effectiveCallOut.toFixed(2)}</td>
+                  </tr>
+                )}
+                {includeJourneyman && (
+                  <>
+                    <tr>
+                      <td style={{ ...tdS, color: text, fontWeight: 500 }}>Journeyman Labour</td>
+                      <td style={tdAmt}>${journeymanTotal.toFixed(2)}</td>
+                    </tr>
+                    <tr>
+                      <td style={{ ...tdS, fontSize: "12px", color: text3, paddingTop: "1px", paddingBottom: "8px", borderBottom: "1px solid #F5F5F5" }}>
+                        {journeymanHours} hrs @ ${journeymanRate}/hr
+                      </td>
+                      <td style={{ ...tdS, borderBottom: "1px solid #F5F5F5" }} />
+                    </tr>
+                  </>
+                )}
+                {includeApprentice && apprenticeHours > 0 && (
+                  <>
+                    <tr>
+                      <td style={{ ...tdS, color: text, fontWeight: 500 }}>Apprentice Labour</td>
+                      <td style={tdAmt}>${apprenticeTotal.toFixed(2)}</td>
+                    </tr>
+                    <tr>
+                      <td style={{ ...tdS, fontSize: "12px", color: text3, paddingTop: "1px", paddingBottom: "8px", borderBottom: "1px solid #F5F5F5" }}>
+                        {apprenticeHours} hrs @ ${apprenticeRate}/hr
+                      </td>
+                      <td style={{ ...tdS, borderBottom: "1px solid #F5F5F5" }} />
+                    </tr>
+                  </>
+                )}
                 {materialsWithMarkup > 0 && (
                   <>
                     <tr>
