@@ -114,12 +114,11 @@ function getProvinceTaxRules(p: Province): { name: string; rate: string; base: "
     { name: "PST", rate: "6%", base: "full", note: "SK is unusual — PST applies to both materials and labour" },
   ];
   if (p === "BC") return [
-    { name: "GST", rate: "5%", base: "full" },
-    { name: "PST", rate: "7%", base: "materials", note: "Labour is PST-exempt in BC" },
+    { name: "GST", rate: "5%", base: "full", note: "BC plumbing is a service to real property — no PST on customer invoice. You pay PST when buying materials; your customer pays GST only." },
   ];
   if (p === "MB") return [
     { name: "GST", rate: "5%", base: "full" },
-    { name: "RST", rate: "7%", base: "materials", note: "Labour is RST-exempt in MB" },
+    { name: "RST", rate: "7%", base: "full", note: "MB M&E trades (incl. plumbing) charge RST on full invoice — buy materials RST-exempt, charge RST on labour + materials" },
   ];
   return [{ name: "GST", rate: "5%", base: "full", note: "No provincial sales tax" }];
 }

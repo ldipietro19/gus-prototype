@@ -1,5 +1,12 @@
-// GUS Tax Calculation Engine — Provincial Tax Spec v1
+// GUS Tax Calculation Engine — Provincial Tax Spec v2
 // Implements Rules A–E for all Canadian provinces
+//
+// Key sources:
+//   BC:  gov.bc.ca/taxes/sales-taxes/pst/charge-collect/pst-real-property-contractors
+//   MB:  gov.mb.ca/finance/taxation/pubs/bulletins/031.pdf  (M&E Bulletin)
+//   SK:  sets.saskatchewan.ca PST-12 (Services to Real Property)
+//   QC:  revenuquebec.ca GST/HST and QST
+//   ON/Atlantic: CRA HST rates
 
 export type Province =
   | "BC" | "AB" | "SK" | "MB" | "ON" | "QC"
@@ -51,26 +58,31 @@ export function calculateTax(
       };
     }
 
-    // ── Rule B: GST + PST/RST on materials only (BC, MB) ────────
+    // ── Rule B: GST only (BC) ───────────────────────────────────
+    // BC real property contractors (plumbing explicitly listed by BC gov):
+    // Services to real property are NOT subject to PST. The contractor pays
+    // PST when buying materials; that cost is baked into pricing. Customer
+    // pays GST only on the full invoice. Applies to both T&M and lump-sum.
+    // Source: gov.bc.ca/taxes/sales-taxes/pst/charge-collect/pst-real-property-contractors/contractors-charging-pst
     case "BC": {
       const gst = r2(full * 0.05);
-      const pst = r2(materialsSubtotal * 0.07);
       return {
-        lines: [
-          { name: "GST", rate: 0.05, base: full, appliesTo: "full", amount: gst },
-          { name: "PST", rate: 0.07, base: materialsSubtotal, appliesTo: "materials", amount: pst },
-        ],
-        totalTax: r2(gst + pst),
+        lines: [{ name: "GST", rate: 0.05, base: full, appliesTo: "full", amount: gst }],
+        totalTax: gst,
       };
     }
 
+    // ── Rule B2: GST + RST on full subtotal (MB) ─────────────────
+    // Manitoba M&E trades (plumbing explicitly listed in Bulletin 031):
+    // RST 7% applies to the TOTAL billing — labour AND materials.
+    // M&E contractors purchase materials RST-exempt, then charge RST on full invoice.
     case "MB": {
       const gst = r2(full * 0.05);
-      const rst = r2(materialsSubtotal * 0.07);
+      const rst = r2(full * 0.07);
       return {
         lines: [
           { name: "GST", rate: 0.05, base: full, appliesTo: "full", amount: gst },
-          { name: "RST", rate: 0.07, base: materialsSubtotal, appliesTo: "materials", amount: rst },
+          { name: "RST", rate: 0.07, base: full, appliesTo: "full", amount: rst },
         ],
         totalTax: r2(gst + rst),
       };
@@ -139,7 +151,8 @@ export function formatTaxLabel(line: TaxLine): string {
 }
 
 /** Provinces that require PST/QST registration to collect from customers */
-export const PST_PROVINCES: Province[] = ["BC", "MB", "SK", "QC"];
+// Note: BC is NOT included — BC plumbers pay PST at purchase, never charge customers
+export const PST_PROVINCES: Province[] = ["MB", "SK", "QC"];
 
 export const PROVINCE_NAMES: Record<Province, string> = {
   BC: "British Columbia", AB: "Alberta", SK: "Saskatchewan", MB: "Manitoba",
