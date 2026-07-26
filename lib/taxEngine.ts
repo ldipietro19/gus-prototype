@@ -111,12 +111,20 @@ export function calculateTax(
     }
 
     case "NB":
-    case "NS":
     case "NL":
     case "PE": {
       const hst = r2(full * 0.15);
       return {
         lines: [{ name: "HST", rate: 0.15, base: full, appliesTo: "full", amount: hst }],
+        totalTax: hst,
+      };
+    }
+
+    // ── Rule D2: HST 14% (NS) — rate reduced April 1, 2025 ──────
+    case "NS": {
+      const hst = r2(full * 0.14);
+      return {
+        lines: [{ name: "HST", rate: 0.14, base: full, appliesTo: "full", amount: hst }],
         totalTax: hst,
       };
     }

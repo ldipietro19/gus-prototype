@@ -104,7 +104,8 @@ const CANADA_TIMEZONES = [
 
 function getProvinceTaxRules(p: Province): { name: string; rate: string; base: "full" | "materials"; note?: string }[] {
   if (p === "ON") return [{ name: "HST", rate: "13%", base: "full" }];
-  if (["NB", "NS", "NL", "PE"].includes(p)) return [{ name: "HST", rate: "15%", base: "full" }];
+  if (p === "NS") return [{ name: "HST", rate: "14%", base: "full", note: "Nova Scotia reduced HST to 14% effective April 1, 2025" }];
+  if (["NB", "NL", "PE"].includes(p)) return [{ name: "HST", rate: "15%", base: "full" }];
   if (p === "QC") return [
     { name: "GST", rate: "5%", base: "full" },
     { name: "QST", rate: "9.975%", base: "full" },
