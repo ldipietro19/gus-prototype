@@ -136,9 +136,12 @@ export interface PricingSettings {
   compactView: boolean;
   // Business profile
   companyName: string;
+  businessAddress: string;
+  licenceNumber: string;
   gstNumber: string;
   phone: string;
   email: string;
+  paymentInstructions: string;
   // Tax / province
   province: import("./taxEngine").Province;
   pstRegistered: boolean;
@@ -170,9 +173,12 @@ export const defaultPricingSettings: PricingSettings = {
   timezone: "",
   compactView: false,
   companyName: "LC Plumbing Co",
+  businessAddress: "Port Moody, BC",
+  licenceNumber: "",
   gstNumber: "715748331RT0001",
   phone: "778-840-1388",
   email: "kelsea@repplumbing.net",
+  paymentInstructions: "",
   province: "BC",
   pstRegistered: true,
   journeymanRate: 113,
@@ -257,6 +263,9 @@ export function loadPricingSettings(): PricingSettings {
       if (!parsed.theme) parsed.theme = "dark";
       if (!parsed.timezone) parsed.timezone = "";
       if (parsed.compactView === undefined) parsed.compactView = false;
+      if (!parsed.businessAddress) parsed.businessAddress = defaultPricingSettings.businessAddress;
+      if (!parsed.licenceNumber) parsed.licenceNumber = defaultPricingSettings.licenceNumber;
+      if (!parsed.paymentInstructions) parsed.paymentInstructions = defaultPricingSettings.paymentInstructions;
       return { ...defaultPricingSettings, ...parsed };
     }
   } catch {}

@@ -144,9 +144,12 @@ export default function SettingsPanel() {
 
   // Business profile
   const [companyName, setCompanyName] = useState(defaultPricingSettings.companyName);
+  const [businessAddress, setBusinessAddress] = useState(defaultPricingSettings.businessAddress);
+  const [licenceNumber, setLicenceNumber] = useState(defaultPricingSettings.licenceNumber);
   const [gstNumber, setGstNumber] = useState(defaultPricingSettings.gstNumber);
   const [phone, setPhone] = useState(defaultPricingSettings.phone);
   const [bizEmail, setBizEmail] = useState(defaultPricingSettings.email);
+  const [paymentInstructions, setPaymentInstructions] = useState(defaultPricingSettings.paymentInstructions);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
 
@@ -184,9 +187,12 @@ export default function SettingsPanel() {
   useEffect(() => {
     const s = loadPricingSettings();
     setCompanyName(s.companyName);
+    setBusinessAddress(s.businessAddress);
+    setLicenceNumber(s.licenceNumber);
     setGstNumber(s.gstNumber);
     setPhone(s.phone);
     setBizEmail(s.email);
+    setPaymentInstructions(s.paymentInstructions);
     setLogoUrl(loadLogo());
     setDisplayName(s.displayName ?? "");
     setTheme(s.theme ?? "dark");
@@ -306,16 +312,30 @@ export default function SettingsPanel() {
               <Field label="Company name">
                 <input type="text" value={companyName}
                   onChange={e => setCompanyName(e.target.value)}
-                  onBlur={() => savePricingSettings({ companyName, gstNumber, phone, email: bizEmail })}
+                  onBlur={() => savePricingSettings({ companyName, businessAddress, licenceNumber, gstNumber, phone, email: bizEmail, paymentInstructions })}
+                  style={inp} />
+              </Field>
+              <Field label="Business address">
+                <input type="text" value={businessAddress} placeholder="123 Main St, Port Moody, BC V3H 1A1"
+                  onChange={e => setBusinessAddress(e.target.value)}
+                  onBlur={() => savePricingSettings({ companyName, businessAddress, licenceNumber, gstNumber, phone, email: bizEmail, paymentInstructions })}
                   style={inp} />
               </Field>
               <div style={row2}>
                 <Field label="GST / HST number">
                   <input type="text" value={gstNumber}
                     onChange={e => setGstNumber(e.target.value)}
-                    onBlur={() => savePricingSettings({ companyName, gstNumber, phone, email: bizEmail })}
+                    onBlur={() => savePricingSettings({ companyName, businessAddress, licenceNumber, gstNumber, phone, email: bizEmail, paymentInstructions })}
                     style={inp} />
                 </Field>
+                <Field label="Trade licence number" optional>
+                  <input type="text" value={licenceNumber} placeholder="e.g. BC Gas / Plumbing licence #"
+                    onChange={e => setLicenceNumber(e.target.value)}
+                    onBlur={() => savePricingSettings({ companyName, businessAddress, licenceNumber, gstNumber, phone, email: bizEmail, paymentInstructions })}
+                    style={inp} />
+                </Field>
+              </div>
+              <div style={row2}>
                 <Field label="WCB / WorkSafe number" optional>
                   <input type="text" placeholder="e.g. 12345678" style={inp} />
                 </Field>
@@ -341,20 +361,27 @@ export default function SettingsPanel() {
                 <Field label="Phone">
                   <input type="tel" value={phone}
                     onChange={e => setPhone(e.target.value)}
-                    onBlur={() => savePricingSettings({ companyName, gstNumber, phone, email: bizEmail })}
+                    onBlur={() => savePricingSettings({ companyName, businessAddress, licenceNumber, gstNumber, phone, email: bizEmail, paymentInstructions })}
                     style={inp} />
                 </Field>
                 <Field label="Email">
                   <input type="email" value={bizEmail}
                     onChange={e => setBizEmail(e.target.value)}
-                    onBlur={() => savePricingSettings({ companyName, gstNumber, phone, email: bizEmail })}
+                    onBlur={() => savePricingSettings({ companyName, businessAddress, licenceNumber, gstNumber, phone, email: bizEmail, paymentInstructions })}
                     style={inp} />
                 </Field>
               </div>
               <Field label="Website" optional><input type="text" placeholder="https://repplumbing.ca" style={inp} /></Field>
+              <Field label="How to pay" optional>
+                <input type="text" value={paymentInstructions} placeholder="E-transfer to email@domain.com · Cheque accepted"
+                  onChange={e => setPaymentInstructions(e.target.value)}
+                  onBlur={() => savePricingSettings({ companyName, businessAddress, licenceNumber, gstNumber, phone, email: bizEmail, paymentInstructions })}
+                  style={inp} />
+                <p style={hint}>Shown on every customer quote.</p>
+              </Field>
             </div>
 
-            <SaveBar onSave={() => savePricingSettings({ companyName, gstNumber, phone, email: bizEmail })} />
+            <SaveBar onSave={() => savePricingSettings({ companyName, businessAddress, licenceNumber, gstNumber, phone, email: bizEmail, paymentInstructions })} />
           </div>
         )}
 
