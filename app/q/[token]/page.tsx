@@ -6,23 +6,11 @@ import { calculateTax, formatTaxLabel } from "@/lib/taxEngine";
 
 type Response = "pending" | "accepted" | "declined";
 
-// ── Brand tokens ──────────────────────────────────────────────────────────────
-const navy  = "#0D1B2E";
-const card  = "#142236";
-const deep  = "#060e1a";
-const orange = "#F26A1B";
-const teal  = "#1ABFBF";
-const offwhite = "#F0F6FF";
-const chalk = "#B0CFE0";
-const slate = "#3D6480";
-const borderLine = "rgba(255,255,255,0.07)";
-
 export default function CustomerQuotePage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = use(params);
   const [response, setResponse] = useState<Response>("pending");
   const [loaded, setLoaded] = useState(false);
 
-  // Settings-driven fields
   const [companyName, setCompanyName] = useState(defaultPricingSettings.companyName);
   const [businessAddress, setBusinessAddress] = useState(defaultPricingSettings.businessAddress);
   const [licenceNumber, setLicenceNumber] = useState(defaultPricingSettings.licenceNumber);
@@ -110,76 +98,88 @@ export default function CustomerQuotePage({ params }: { params: Promise<{ token:
   const journeymanTotal = includeJourneyman ? journeymanRate * journeymanHours : 0;
   const apprenticeTotal = includeApprentice ? apprenticeRate * apprenticeHours : 0;
   const effectiveCallOut = includeCallOut ? callOutFee : 0;
-  const labour = journeymanTotal + apprenticeTotal;
-  const labourAndCallOut = labour + effectiveCallOut;
+  const labourAndCallOut = journeymanTotal + apprenticeTotal + effectiveCallOut;
   const subtotal = materialsWithMarkup + labourAndCallOut;
   const taxResult = calculateTax(province, materialsWithMarkup, labourAndCallOut);
   const grandTotal = subtotal + taxResult.totalTax;
   const depositRequired = grandTotal >= depositThreshold;
-  const depositAmount = depositRequired ? (grandTotal * depositPercent / 100) : 0;
+  const depositAmount = depositRequired ? grandTotal * depositPercent / 100 : 0;
 
   // ── Dates ─────────────────────────────────────────────────────────────────────
   const issueDateObj = new Date();
   const validUntilObj = new Date(issueDateObj);
   validUntilObj.setDate(issueDateObj.getDate() + quoteValidDays);
   const fmt = (d: Date) => d.toLocaleDateString("en-CA", { year: "numeric", month: "long", day: "numeric" });
+  const fmtShort = (d: Date) => d.toLocaleDateString("en-CA", { year: "numeric", month: "short", day: "numeric" });
   const issueDate = fmt(issueDateObj);
-  const validUntil = fmt(validUntilObj);
+  const validUntil = fmtShort(validUntilObj);
 
-  // ── Customer record ───────────────────────────────────────────────────────────
+  // ── Customer ──────────────────────────────────────────────────────────────────
   const customerRecord = job?.customer ? mockCustomers.find(c =>
     c.name.toLowerCase() === job.customer!.toLowerCase() ||
     job.customer!.toLowerCase().includes(c.name.toLowerCase())
   ) : undefined;
 
-  // ── Shared style helpers ──────────────────────────────────────────────────────
-  const eyebrow: React.CSSProperties = {
-    fontFamily: "'DM Mono', monospace", fontSize: "9px", letterSpacing: "0.2em",
-    textTransform: "uppercase", color: teal, marginBottom: "8px",
+  // ── Shared styles ─────────────────────────────────────────────────────────────
+  const orange = "#F26A1B";
+  const dark   = "#1A1A1A";
+  const f      = "'DM Sans', sans-serif";
+  const mono   = "'DM Mono', monospace";
+
+  const sectionLabel: React.CSSProperties = {
+    fontFamily: mono, fontSize: "9px", fontWeight: 600,
+    letterSpacing: "0.14em", textTransform: "uppercase",
+    color: "#CCC", marginBottom: "8px",
   };
-  const divider: React.CSSProperties = {
-    height: "1px",
-    background: `linear-gradient(90deg, transparent, ${teal}, transparent)`,
-    opacity: 0.2, margin: "0",
+  const partyLabel: React.CSSProperties = {
+    fontFamily: mono, fontSize: "9px", fontWeight: 600,
+    letterSpacing: "0.14em", textTransform: "uppercase",
+    color: orange, marginBottom: "6px",
+  };
+  const thStyle: React.CSSProperties = {
+    fontFamily: mono, fontSize: "10px", fontWeight: 600,
+    letterSpacing: "0.08em", textTransform: "uppercase",
+    color: "white", padding: "11px 0", textAlign: "left",
+  };
+  const tdStyle: React.CSSProperties = {
+    padding: "13px 0", fontSize: "13px",
+    borderBottom: "1px solid #F3F3F3", verticalAlign: "top",
+  };
+  const monoCell: React.CSSProperties = {
+    fontFamily: mono, fontSize: "12px", color: "#666",
   };
 
-  // ── Global CSS (textures + responsive) ───────────────────────────────────────
   const globalCss = `
-    @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background: ${navy}; }
-    .q-body::before {
-      content: '';
-      position: fixed; inset: 0;
-      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
-      pointer-events: none; z-index: 9999;
-    }
-    .q-body::after {
-      content: '';
-      position: fixed; inset: 0;
-      background-image:
-        linear-gradient(rgba(26,191,191,0.025) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(26,191,191,0.025) 1px, transparent 1px);
-      background-size: 40px 40px;
-      pointer-events: none; z-index: 0;
-    }
-    @media (max-width: 640px) {
-      .q-header-grid { grid-template-columns: 1fr !important; gap: 28px !important; }
-      .q-pad { padding-left: 24px !important; padding-right: 24px !important; }
+    body { background: #ECEAE5; }
+    @media (max-width: 600px) {
+      .q-header { flex-direction: column !important; gap: 16px !important; }
+      .q-est-word { text-align: left !important; }
+      .q-est-meta { text-align: left !important; }
+      .q-parties { grid-template-columns: 1fr !important; }
+      .q-party-right { border-left: none !important; border-top: 1px solid #EBEBEB; }
+      .q-pad { padding-left: 20px !important; padding-right: 20px !important; }
+      .q-tbl th:first-child { padding-left: 20px !important; }
+      .q-tbl td:first-child { padding-left: 20px !important; }
+      .q-tbl th.q-th-right { padding-right: 20px !important; }
+      .q-tbl td.q-td-right { padding-right: 20px !important; }
+      .q-totals { padding-left: 20px !important; padding-right: 20px !important; }
       .q-totals-inner { width: 100% !important; }
-      .q-totals { padding-left: 24px !important; padding-right: 24px !important; }
-      .q-hero-name { font-size: clamp(36px, 10vw, 72px) !important; }
+      .q-total-bar { padding-left: 20px !important; padding-right: 20px !important; }
+      .q-cta { padding-left: 20px !important; padding-right: 20px !important; }
+      .q-footer { padding-left: 20px !important; padding-right: 20px !important; }
     }
   `;
 
   // ── Not found ─────────────────────────────────────────────────────────────────
   if (!job) {
     return (
-      <div className="q-body" style={{ minHeight: "100vh", background: navy, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'DM Sans', sans-serif", position: "relative" }}>
+      <div style={{ minHeight: "100vh", background: "#ECEAE5", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: f }}>
         <style>{globalCss}</style>
-        <div style={{ textAlign: "center", color: slate, position: "relative", zIndex: 1 }}>
-          <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: "48px", color: offwhite, marginBottom: "8px", letterSpacing: "0.04em" }}>Not Found</div>
-          <div style={{ fontSize: "14px", color: chalk }}>This link may have expired or the quote doesn&apos;t exist.</div>
+        <div style={{ textAlign: "center", color: "#999" }}>
+          <div style={{ fontSize: "20px", fontWeight: 600, color: "#333", marginBottom: "8px" }}>Quote not found</div>
+          <div style={{ fontSize: "13px" }}>This link may have expired or the quote doesn&apos;t exist.</div>
         </div>
       </div>
     );
@@ -188,34 +188,31 @@ export default function CustomerQuotePage({ params }: { params: Promise<{ token:
   // ── Accepted ──────────────────────────────────────────────────────────────────
   if (response === "accepted") {
     return (
-      <div className="q-body" style={{ minHeight: "100vh", background: navy, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", fontFamily: "'DM Sans', sans-serif", padding: "40px 24px", position: "relative" }}>
+      <div style={{ minHeight: "100vh", background: "#ECEAE5", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", fontFamily: f, padding: "40px 24px" }}>
         <style>{globalCss}</style>
-        <div style={{ textAlign: "center", maxWidth: "480px", position: "relative", zIndex: 1 }}>
-          <div style={{ width: "64px", height: "64px", borderRadius: "50%", background: "rgba(26,191,191,0.12)", border: `1px solid ${teal}`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 24px", fontSize: "26px", color: teal }}>✓</div>
-          <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: "clamp(48px, 12vw, 80px)", color: offwhite, letterSpacing: "0.04em", lineHeight: 0.9, marginBottom: "16px" }}>You&apos;re in.</div>
-          <p style={{ fontSize: "15px", color: chalk, lineHeight: 1.7, marginBottom: "32px" }}>
+        <div style={{ background: "white", maxWidth: "480px", width: "100%", padding: "40px 36px", textAlign: "center" }}>
+          <div style={{ width: "52px", height: "52px", borderRadius: "50%", background: "#F0FDF4", border: "1px solid #BBF7D0", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 20px", fontSize: "22px", color: "#16A34A" }}>✓</div>
+          <div style={{ fontSize: "26px", fontWeight: 700, color: "#111", letterSpacing: "-0.02em", marginBottom: "8px" }}>You&apos;re in.</div>
+          <p style={{ fontSize: "14px", color: "#777", lineHeight: 1.7, marginBottom: "28px" }}>
             {companyName} has been notified and will be in touch to schedule.
           </p>
-          <div style={{ background: card, border: `1px solid ${borderLine}`, borderTop: `3px solid ${orange}`, padding: "24px 28px", textAlign: "left" }}>
-            <div style={eyebrow}>// Estimate accepted</div>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px", marginBottom: "8px", paddingBottom: "8px", borderBottom: `1px solid ${borderLine}` }}>
-              <span style={{ color: chalk }}>Quote</span>
-              <span style={{ color: offwhite, fontFamily: "'DM Mono', monospace", fontSize: "12px" }}>{job.jobId}</span>
+          <div style={{ borderTop: "1px solid #EBEBEB", paddingTop: "20px", textAlign: "left" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px", marginBottom: "8px" }}>
+              <span style={{ color: "#999" }}>Estimate</span>
+              <span style={{ color: "#333", fontFamily: mono }}>{job.jobId}</span>
             </div>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px", marginBottom: "8px", paddingBottom: "8px", borderBottom: `1px solid ${borderLine}` }}>
-              <span style={{ color: chalk }}>Total</span>
-              <span style={{ color: orange, fontFamily: "'DM Mono', monospace", fontWeight: 600 }}>${grandTotal.toFixed(2)} CAD</span>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px", marginBottom: "8px" }}>
+              <span style={{ color: "#999" }}>Total</span>
+              <span style={{ color: orange, fontFamily: mono, fontWeight: 600 }}>${grandTotal.toFixed(2)} CAD</span>
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px" }}>
-              <span style={{ color: chalk }}>Status</span>
-              <span style={{ color: teal, fontFamily: "'DM Mono', monospace", fontSize: "11px", letterSpacing: "0.1em", textTransform: "uppercase" }}>Accepted</span>
+              <span style={{ color: "#999" }}>Status</span>
+              <span style={{ color: "#16A34A", fontSize: "12px", fontWeight: 500 }}>Accepted</span>
             </div>
           </div>
-          <p style={{ fontSize: "11px", color: slate, marginTop: "20px", fontFamily: "'DM Mono', monospace", letterSpacing: "0.04em" }}>
-            Questions? {phone}
-          </p>
+          <p style={{ fontSize: "11px", color: "#CCC", marginTop: "20px", fontFamily: mono }}>Questions? {phone}</p>
         </div>
-        <div style={{ marginTop: "60px", fontSize: "9px", color: slate, fontFamily: "'DM Mono', monospace", letterSpacing: "0.14em", textTransform: "uppercase", position: "relative", zIndex: 1 }}>Powered by <span style={{ color: orange }}>GUS</span></div>
+        <p style={{ fontSize: "10px", color: "#BBB", marginTop: "24px", fontFamily: mono, letterSpacing: "0.06em" }}>Powered by GUS</p>
       </div>
     );
   }
@@ -223,260 +220,211 @@ export default function CustomerQuotePage({ params }: { params: Promise<{ token:
   // ── Declined ──────────────────────────────────────────────────────────────────
   if (response === "declined") {
     return (
-      <div className="q-body" style={{ minHeight: "100vh", background: navy, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", fontFamily: "'DM Sans', sans-serif", padding: "40px 24px", position: "relative" }}>
+      <div style={{ minHeight: "100vh", background: "#ECEAE5", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", fontFamily: f, padding: "40px 24px" }}>
         <style>{globalCss}</style>
-        <div style={{ textAlign: "center", maxWidth: "420px", position: "relative", zIndex: 1 }}>
-          <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: "clamp(48px, 12vw, 80px)", color: offwhite, letterSpacing: "0.04em", lineHeight: 0.9, marginBottom: "16px" }}>Got it.</div>
-          <p style={{ fontSize: "15px", color: chalk, lineHeight: 1.7 }}>
+        <div style={{ background: "white", maxWidth: "480px", width: "100%", padding: "40px 36px", textAlign: "center" }}>
+          <div style={{ fontSize: "26px", fontWeight: 700, color: "#111", letterSpacing: "-0.02em", marginBottom: "8px" }}>Got it.</div>
+          <p style={{ fontSize: "14px", color: "#777", lineHeight: 1.7 }}>
             No problem — {companyName} has been notified that you&apos;re not proceeding at this time.
           </p>
         </div>
-        <div style={{ marginTop: "60px", fontSize: "9px", color: slate, fontFamily: "'DM Mono', monospace", letterSpacing: "0.14em", textTransform: "uppercase", position: "relative", zIndex: 1 }}>Powered by <span style={{ color: orange }}>GUS</span></div>
+        <p style={{ fontSize: "10px", color: "#BBB", marginTop: "24px", fontFamily: mono, letterSpacing: "0.06em" }}>Powered by GUS</p>
       </div>
     );
   }
 
-  // ── Pending — full GUS dark brand quote ───────────────────────────────────────
+  // ── Pending ───────────────────────────────────────────────────────────────────
   return (
-    <div className="q-body" style={{ minHeight: "100vh", background: navy, fontFamily: "'DM Sans', sans-serif", position: "relative" }}>
+    <div style={{ minHeight: "100vh", background: "#ECEAE5", fontFamily: f, padding: "24px 16px 48px" }}>
       <style>{globalCss}</style>
+      <div style={{ maxWidth: "680px", margin: "0 auto", background: "white" }}>
 
-      <div style={{ position: "relative", zIndex: 1 }}>
-
-        {/* ── Hero header (above card) ── */}
-        <div style={{ background: deep, borderBottom: `1px solid ${borderLine}`, padding: "28px 0 24px" }}>
-          <div style={{ maxWidth: "720px", margin: "0 auto", padding: "0 24px" }}>
-            <div style={eyebrow}>// Estimate · {job.jobId}</div>
+        {/* Header */}
+        <div className="q-header q-pad" style={{ padding: "28px 36px 24px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: `4px solid ${orange}` }}>
+          <div>
             {logoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={logoUrl} alt={companyName} style={{ maxHeight: "52px", maxWidth: "200px", objectFit: "contain", display: "block", marginBottom: "8px" }} />
+              <img src={logoUrl} alt={companyName} style={{ maxHeight: "52px", maxWidth: "200px", objectFit: "contain", display: "block", marginBottom: "10px" }} />
             ) : (
-              <div className="q-hero-name" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: "clamp(42px, 10vw, 72px)", color: offwhite, lineHeight: 0.92, letterSpacing: "0.02em", marginBottom: "4px" }}>
-                {companyName}
-              </div>
+              <div style={{ fontSize: "20px", fontWeight: 700, color: "#111", letterSpacing: "-0.02em", marginBottom: "4px" }}>{companyName}</div>
             )}
-            <div style={{ display: "flex", gap: "16px", flexWrap: "wrap", marginTop: "10px" }}>
-              <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "10px", color: slate, letterSpacing: "0.08em" }}>{issueDate}</span>
-              <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "10px", color: slate }}>·</span>
-              <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "10px", color: orange, letterSpacing: "0.06em", textTransform: "uppercase" }}>Valid until {validUntil}</span>
+            <div style={{ fontSize: "11px", color: "#999", lineHeight: 1.8 }}>
+              {phone} · {email}<br />
+              {businessAddress && <>{businessAddress} · </>}GST# {gstNumber}
+              {licenceNumber && <> · Lic# {licenceNumber}</>}
+            </div>
+          </div>
+          <div style={{ textAlign: "right", flexShrink: 0, marginLeft: "24px" }}>
+            <div className="q-est-word" style={{ fontSize: "28px", fontWeight: 700, color: orange, letterSpacing: "0.04em", textTransform: "uppercase", lineHeight: 1 }}>Estimate</div>
+            <div className="q-est-meta" style={{ fontFamily: mono, fontSize: "11px", color: "#AAA", marginTop: "5px", lineHeight: 1.8, textAlign: "right" }}>
+              No. {job.jobId}<br />
+              Issued {issueDate}<br />
+              Valid until {validUntil}
             </div>
           </div>
         </div>
 
-        {/* ── Main document card ── */}
-        <div style={{ maxWidth: "720px", margin: "0 auto", padding: "32px 24px 0" }}>
-          <div style={{ background: card, border: `1px solid ${borderLine}`, borderTop: `3px solid ${orange}` }}>
-
-            {/* From / Bill To */}
-            <div className="q-pad q-header-grid" style={{ padding: "32px 40px 28px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "32px", borderBottom: `1px solid ${borderLine}` }}>
-              {/* From */}
-              <div>
-                <div style={eyebrow}>// From</div>
-                <div style={{ fontSize: "16px", fontWeight: 600, color: offwhite, marginBottom: "10px" }}>{companyName}</div>
-                <div style={{ fontSize: "12px", color: chalk, lineHeight: "1.9" }}>
-                  {businessAddress && <span>{businessAddress}<br /></span>}
-                  {phone}<br />
-                  <span style={{ color: teal }}>{email}</span><br />
-                  <span style={{ color: slate }}>GST# {gstNumber}</span>
-                  {licenceNumber && <><br /><span style={{ color: slate }}>Lic# {licenceNumber}</span></>}
-                </div>
+        {/* Parties */}
+        <div className="q-parties" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", borderBottom: "1px solid #EBEBEB" }}>
+          <div className="q-pad" style={{ padding: "22px 36px" }}>
+            <div style={partyLabel}>Estimate for</div>
+            <div style={{ fontSize: "16px", fontWeight: 700, color: "#111", marginBottom: "5px", letterSpacing: "-0.01em" }}>{job.customer ?? "Customer"}</div>
+            {customerRecord && (
+              <div style={{ fontSize: "11.5px", color: "#888", lineHeight: 1.8 }}>
+                {customerRecord.address}<br />{customerRecord.phone}
               </div>
-              {/* Bill To */}
-              <div>
-                <div style={eyebrow}>// Bill To</div>
-                <div style={{ fontSize: "16px", fontWeight: 600, color: offwhite, marginBottom: "10px" }}>{job.customer ?? "Customer"}</div>
-                {customerRecord ? (
-                  <div style={{ fontSize: "12px", color: chalk, lineHeight: "1.9" }}>
-                    {customerRecord.address}<br />
-                    {customerRecord.phone}
-                  </div>
-                ) : (
-                  <div style={{ fontSize: "12px", color: slate, lineHeight: "1.9" }}>{paymentTerms}</div>
-                )}
-              </div>
-            </div>
-
-            {/* Scope */}
-            <div className="q-pad" style={{ padding: "28px 40px" }}>
-              <div style={eyebrow}>// Scope of Work</div>
-              <p style={{ fontSize: "14px", color: chalk, lineHeight: "1.75" }}>
-                {estimateNotes || job.description || "Work as discussed with customer."}
-              </p>
-            </div>
-
-            <div style={divider} />
-
-            {/* Pricing */}
-            <div className="q-pad" style={{ padding: "28px 40px" }}>
-              <div style={eyebrow}>// Pricing</div>
-              <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                <tbody>
-                  {includeCallOut && (
-                    <tr>
-                      <td style={{ padding: "10px 0", fontSize: "13.5px", color: offwhite, fontWeight: 500, borderBottom: `1px solid rgba(255,255,255,0.04)` }}>Call-out</td>
-                      <td style={{ padding: "10px 0", textAlign: "right", fontFamily: "'DM Mono', monospace", fontSize: "13px", color: chalk, borderBottom: `1px solid rgba(255,255,255,0.04)`, whiteSpace: "nowrap" }}>${effectiveCallOut.toFixed(2)}</td>
-                    </tr>
-                  )}
-                  {includeJourneyman && (
-                    <>
-                      <tr>
-                        <td style={{ padding: "10px 0 2px", fontSize: "13.5px", color: offwhite, fontWeight: 500 }}>Journeyman Labour</td>
-                        <td style={{ padding: "10px 0 2px", textAlign: "right", fontFamily: "'DM Mono', monospace", fontSize: "13px", color: chalk, whiteSpace: "nowrap" }}>${journeymanTotal.toFixed(2)}</td>
-                      </tr>
-                      <tr>
-                        <td style={{ padding: "0 0 10px", fontSize: "11px", color: slate, fontFamily: "'DM Mono', monospace", borderBottom: `1px solid rgba(255,255,255,0.04)` }}>
-                          {journeymanHours} hrs @ ${journeymanRate}/hr
-                        </td>
-                        <td style={{ borderBottom: `1px solid rgba(255,255,255,0.04)` }} />
-                      </tr>
-                    </>
-                  )}
-                  {includeApprentice && apprenticeHours > 0 && (
-                    <>
-                      <tr>
-                        <td style={{ padding: "10px 0 2px", fontSize: "13.5px", color: offwhite, fontWeight: 500 }}>Apprentice Labour</td>
-                        <td style={{ padding: "10px 0 2px", textAlign: "right", fontFamily: "'DM Mono', monospace", fontSize: "13px", color: chalk, whiteSpace: "nowrap" }}>${apprenticeTotal.toFixed(2)}</td>
-                      </tr>
-                      <tr>
-                        <td style={{ padding: "0 0 10px", fontSize: "11px", color: slate, fontFamily: "'DM Mono', monospace", borderBottom: `1px solid rgba(255,255,255,0.04)` }}>
-                          {apprenticeHours} hrs @ ${apprenticeRate}/hr
-                        </td>
-                        <td style={{ borderBottom: `1px solid rgba(255,255,255,0.04)` }} />
-                      </tr>
-                    </>
-                  )}
-                  {materialsWithMarkup > 0 && (
-                    <>
-                      <tr>
-                        <td style={{ padding: "10px 0 2px", fontSize: "13.5px", color: offwhite, fontWeight: 500 }}>Materials &amp; Equipment</td>
-                        <td style={{ padding: "10px 0 2px", textAlign: "right", fontFamily: "'DM Mono', monospace", fontSize: "13px", color: chalk, whiteSpace: "nowrap" }}>${materialsWithMarkup.toFixed(2)}</td>
-                      </tr>
-                      <tr>
-                        <td style={{ padding: "0 0 10px", fontSize: "11px", color: slate, fontFamily: "'DM Mono', monospace" }}>
-                          {job.parts?.[0]?.items[0]?.name.split("(")[0].trim()}{job.parts && job.parts.length > 1 ? ", all fittings and connections included" : ""}
-                        </td>
-                        <td />
-                      </tr>
-                    </>
-                  )}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Totals */}
-            <div className="q-totals" style={{ padding: "0 40px 32px", display: "flex", justifyContent: "flex-end" }}>
-              <div className="q-totals-inner" style={{ width: "300px" }}>
-                {/* Summary rows */}
-                {materialsWithMarkup > 0 && (
-                  <div style={{ display: "flex", justifyContent: "space-between", padding: "7px 0", fontSize: "13px", color: chalk, borderBottom: `1px solid rgba(255,255,255,0.05)` }}>
-                    <span>Materials &amp; Equipment</span>
-                    <span style={{ fontFamily: "'DM Mono', monospace" }}>${materialsWithMarkup.toFixed(2)}</span>
-                  </div>
-                )}
-                <div style={{ display: "flex", justifyContent: "space-between", padding: "7px 0", fontSize: "13px", color: chalk, borderBottom: `1px solid rgba(255,255,255,0.05)` }}>
-                  <span>Labour &amp; call-out</span>
-                  <span style={{ fontFamily: "'DM Mono', monospace" }}>${labourAndCallOut.toFixed(2)}</span>
-                </div>
-                {/* Subtotal */}
-                <div style={{ display: "flex", justifyContent: "space-between", padding: "7px 0", fontSize: "13px", color: offwhite, fontWeight: 500, borderBottom: `1px solid rgba(255,255,255,0.05)` }}>
-                  <span>Subtotal</span>
-                  <span style={{ fontFamily: "'DM Mono', monospace" }}>${subtotal.toFixed(2)}</span>
-                </div>
-                {/* Tax lines */}
-                {taxResult.lines.filter(l => l.amount > 0).map(line => (
-                  <div key={line.name} style={{ display: "flex", justifyContent: "space-between", padding: "7px 0", fontSize: "13px", color: chalk, borderBottom: `1px solid rgba(255,255,255,0.05)` }}>
-                    <span>{formatTaxLabel(line)}</span>
-                    <span style={{ fontFamily: "'DM Mono', monospace" }}>${line.amount.toFixed(2)}</span>
-                  </div>
-                ))}
-                {/* Grand total */}
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", padding: "14px 0 0", borderTop: `1px solid ${orange}`, marginTop: "4px" }}>
-                  <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: "22px", color: offwhite, letterSpacing: "0.06em" }}>Total</span>
-                  <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: "28px", color: orange, letterSpacing: "0.04em" }}>${grandTotal.toFixed(2)} CAD</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Deposit notice */}
-            {depositRequired && (
-              <>
-                <div style={divider} />
-                <div className="q-pad" style={{ padding: "20px 40px" }}>
-                  <div style={eyebrow}>// Deposit required</div>
-                  <p style={{ fontSize: "13px", color: chalk, lineHeight: 1.7 }}>
-                    A {depositPercent}% deposit of <span style={{ color: offwhite, fontFamily: "'DM Mono', monospace" }}>${depositAmount.toFixed(2)}</span> is required on equipment to schedule this work.
-                    {paymentInstructions && <> {paymentInstructions}.</>}
-                  </p>
-                </div>
-              </>
             )}
-
-            {/* Payment instructions (when no deposit block) */}
-            {!depositRequired && paymentInstructions && (
-              <>
-                <div style={divider} />
-                <div className="q-pad" style={{ padding: "20px 40px" }}>
-                  <div style={eyebrow}>// How to pay</div>
-                  <p style={{ fontSize: "13px", color: chalk }}>{paymentInstructions}</p>
-                </div>
-              </>
-            )}
-
-            <div style={divider} />
-
-            {/* Terms & Warranty */}
-            <div className="q-pad" style={{ padding: "24px 40px 32px" }}>
-              {showWarranty && (
-                <p style={{ fontSize: "11.5px", color: slate, lineHeight: "1.75", marginBottom: "10px" }}>
-                  <span style={{ color: chalk, fontWeight: 500 }}>Warranty —</span> Labour warranted for {labourWarranty} from date of installation. {partsWarranty}.
-                </p>
-              )}
-              <p style={{ fontSize: "11.5px", color: slate, lineHeight: "1.75" }}>
-                <span style={{ color: chalk, fontWeight: 500 }}>Terms —</span> {termsText}
-              </p>
+          </div>
+          <div className="q-pad q-party-right" style={{ padding: "22px 36px", borderLeft: "1px solid #EBEBEB" }}>
+            <div style={partyLabel}>Estimate from</div>
+            <div style={{ fontSize: "16px", fontWeight: 700, color: "#111", marginBottom: "5px", letterSpacing: "-0.01em" }}>{companyName}</div>
+            <div style={{ fontSize: "11.5px", color: "#888", lineHeight: 1.8 }}>
+              {businessAddress && <>{businessAddress}<br /></>}
+              {email}
             </div>
-
           </div>
-
-          {/* ── CTA buttons ── */}
-          <div style={{ padding: "24px 0 0" }}>
-            <button
-              onClick={() => respond("accepted")}
-              style={{
-                width: "100%", padding: "18px",
-                background: orange, color: "white", border: "none", cursor: "pointer",
-                fontFamily: "'Bebas Neue', sans-serif", fontSize: "26px", letterSpacing: "0.06em",
-                display: "block", marginBottom: "10px",
-              }}
-              onMouseEnter={e => (e.currentTarget as HTMLElement).style.opacity = "0.9"}
-              onMouseLeave={e => (e.currentTarget as HTMLElement).style.opacity = "1"}
-            >
-              Accept this estimate
-            </button>
-            <button
-              onClick={() => respond("declined")}
-              style={{
-                width: "100%", padding: "13px",
-                background: "transparent", color: slate, border: `1px solid rgba(255,255,255,0.10)`, cursor: "pointer",
-                fontFamily: "'DM Sans', sans-serif", fontSize: "14px",
-              }}
-              onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = chalk}
-              onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = slate}
-            >
-              Decline
-            </button>
-            <p style={{ textAlign: "center", fontSize: "10px", color: slate, marginTop: "14px", fontFamily: "'DM Mono', monospace", letterSpacing: "0.06em", textTransform: "uppercase" }}>
-              By accepting you agree to the terms above · Valid until {validUntil}
-            </p>
-          </div>
-
-          {/* ── Footer ── */}
-          <div style={{ padding: "32px 0 48px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "9px", letterSpacing: "0.12em", textTransform: "uppercase", color: slate }}>{companyName}</span>
-            <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "9px", letterSpacing: "0.1em", textTransform: "uppercase", color: slate }}>Powered by <span style={{ color: orange }}>GUS</span></span>
-          </div>
-
         </div>
+
+        {/* Scope */}
+        <div className="q-pad" style={{ padding: "20px 36px", borderBottom: "1px solid #EBEBEB" }}>
+          <div style={sectionLabel}>Scope of work</div>
+          <div style={{ fontSize: "12.5px", color: "#555", lineHeight: 1.75 }}>
+            {estimateNotes || job.description || "Work as discussed with customer."}
+          </div>
+        </div>
+
+        {/* Table — full bleed */}
+        <table className="q-tbl" style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
+          <thead style={{ background: dark }}>
+            <tr>
+              <th className="q-thl" style={{ ...thStyle, width: "46%", paddingLeft: "36px" }}>Description</th>
+              <th style={{ ...thStyle, width: "14%", textAlign: "center" }}>QTY</th>
+              <th style={{ ...thStyle, width: "20%", textAlign: "center" }}>Unit Price</th>
+              <th className="q-th-right" style={{ ...thStyle, width: "20%", textAlign: "right", paddingRight: "36px" }}>Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {includeCallOut && (
+              <tr>
+                <td style={{ ...tdStyle, paddingLeft: "36px" }}>
+                  <div style={{ fontWeight: 600, color: "#111", fontSize: "13px" }}>Call-out</div>
+                </td>
+                <td style={{ ...tdStyle, ...monoCell, textAlign: "center" }}>1</td>
+                <td style={{ ...tdStyle, ...monoCell, textAlign: "center" }}>${effectiveCallOut.toFixed(2)}</td>
+                <td className="q-td-right" style={{ ...tdStyle, ...monoCell, textAlign: "right", paddingRight: "36px" }}>${effectiveCallOut.toFixed(2)}</td>
+              </tr>
+            )}
+            {includeJourneyman && (
+              <tr>
+                <td style={{ ...tdStyle, paddingLeft: "36px" }}>
+                  <div style={{ fontWeight: 600, color: "#111", fontSize: "13px" }}>Journeyman labour</div>
+                  <div style={{ fontSize: "11px", color: "#AAA", marginTop: "2px" }}>Plumbing installation</div>
+                </td>
+                <td style={{ ...tdStyle, ...monoCell, textAlign: "center" }}>{journeymanHours} hrs</td>
+                <td style={{ ...tdStyle, ...monoCell, textAlign: "center" }}>${journeymanRate.toFixed(2)}</td>
+                <td className="q-td-right" style={{ ...tdStyle, ...monoCell, textAlign: "right", paddingRight: "36px" }}>${journeymanTotal.toFixed(2)}</td>
+              </tr>
+            )}
+            {includeApprentice && apprenticeHours > 0 && (
+              <tr>
+                <td style={{ ...tdStyle, paddingLeft: "36px" }}>
+                  <div style={{ fontWeight: 600, color: "#111", fontSize: "13px" }}>Apprentice labour</div>
+                  <div style={{ fontSize: "11px", color: "#AAA", marginTop: "2px" }}>Plumbing installation</div>
+                </td>
+                <td style={{ ...tdStyle, ...monoCell, textAlign: "center" }}>{apprenticeHours} hrs</td>
+                <td style={{ ...tdStyle, ...monoCell, textAlign: "center" }}>${apprenticeRate.toFixed(2)}</td>
+                <td className="q-td-right" style={{ ...tdStyle, ...monoCell, textAlign: "right", paddingRight: "36px" }}>${apprenticeTotal.toFixed(2)}</td>
+              </tr>
+            )}
+            {materialsWithMarkup > 0 && (
+              <tr>
+                <td style={{ ...tdStyle, paddingLeft: "36px", borderBottom: "none" }}>
+                  <div style={{ fontWeight: 600, color: "#111", fontSize: "13px" }}>Materials &amp; equipment</div>
+                  <div style={{ fontSize: "11px", color: "#AAA", marginTop: "2px" }}>
+                    {job.parts?.[0]?.items[0]?.name.split("(")[0].trim()}{job.parts && job.parts.length > 1 ? ", fittings & connections" : ""}
+                  </div>
+                </td>
+                <td style={{ ...tdStyle, ...monoCell, textAlign: "center", borderBottom: "none" }}>1</td>
+                <td style={{ ...tdStyle, ...monoCell, textAlign: "center", borderBottom: "none" }}>${materialsWithMarkup.toFixed(2)}</td>
+                <td className="q-td-right" style={{ ...tdStyle, ...monoCell, textAlign: "right", paddingRight: "36px", borderBottom: "none" }}>${materialsWithMarkup.toFixed(2)}</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+
+        {/* Subtotals */}
+        <div className="q-totals" style={{ padding: "16px 36px 0", display: "flex", justifyContent: "flex-end" }}>
+          <div className="q-totals-inner" style={{ width: "240px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", padding: "5px 0", color: "#888", fontFamily: mono, borderBottom: "1px solid #F5F5F5" }}>
+              <span>Subtotal</span><span>${subtotal.toFixed(2)}</span>
+            </div>
+            {taxResult.lines.filter(l => l.amount > 0).map(line => (
+              <div key={line.name} style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", padding: "5px 0", color: "#888", fontFamily: mono, borderBottom: "1px solid #F5F5F5" }}>
+                <span>{formatTaxLabel(line)}</span><span>${line.amount.toFixed(2)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Total bar — full bleed */}
+        <div className="q-total-bar" style={{ marginTop: "16px", background: dark, padding: "16px 36px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span style={{ fontSize: "13px", fontWeight: 600, color: "white", letterSpacing: "0.06em", textTransform: "uppercase" }}>Total</span>
+          <span style={{ fontSize: "22px", fontWeight: 700, color: orange, fontFamily: mono }}>${grandTotal.toFixed(2)} CAD</span>
+        </div>
+
+        {/* Deposit notice */}
+        {depositRequired && (
+          <div className="q-pad" style={{ padding: "16px 36px", background: "#FFF8F4", borderBottom: "1px solid #FFE0CC" }}>
+            <div style={{ fontSize: "12px", color: "#955", lineHeight: 1.6 }}>
+              A {depositPercent}% deposit of <strong>${depositAmount.toFixed(2)}</strong> is required on equipment to schedule this work.
+              {paymentInstructions && <> {paymentInstructions}.</>}
+            </div>
+          </div>
+        )}
+
+        {/* Terms */}
+        <div className="q-pad" style={{ padding: "20px 36px", borderTop: depositRequired ? "none" : "1px solid #EBEBEB", marginTop: depositRequired ? "0" : "0" }}>
+          <div style={sectionLabel}>Terms &amp; warranty</div>
+          <div style={{ fontSize: "11px", color: "#AAA", lineHeight: 1.75 }}>
+            {showWarranty && (
+              <><strong style={{ color: "#888" }}>Warranty —</strong> Labour warranted for {labourWarranty}. {partsWarranty}.<br /></>
+            )}
+            {paymentInstructions && !depositRequired && (
+              <><strong style={{ color: "#888" }}>Payment —</strong> {paymentTerms}. {paymentInstructions}.<br /></>
+            )}
+            <strong style={{ color: "#888" }}>Terms —</strong> {termsText}
+          </div>
+        </div>
+
+        {/* CTA */}
+        <div className="q-cta q-pad" style={{ padding: "0 36px 28px" }}>
+          <button
+            onClick={() => respond("accepted")}
+            style={{ width: "100%", padding: "14px", background: orange, color: "white", border: "none", fontFamily: f, fontSize: "15px", fontWeight: 600, cursor: "pointer", marginBottom: "8px", display: "block" }}
+            onMouseEnter={e => (e.currentTarget as HTMLElement).style.opacity = "0.9"}
+            onMouseLeave={e => (e.currentTarget as HTMLElement).style.opacity = "1"}
+          >
+            Accept this estimate
+          </button>
+          <button
+            onClick={() => respond("declined")}
+            style={{ width: "100%", padding: "10px", background: "transparent", color: "#CCC", border: "1px solid #E8E8E8", fontFamily: f, fontSize: "13px", cursor: "pointer" }}
+            onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = "#999"}
+            onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = "#CCC"}
+          >
+            Decline
+          </button>
+          <p style={{ textAlign: "center", fontSize: "10px", color: "#CCC", marginTop: "10px", fontFamily: mono, letterSpacing: "0.03em" }}>
+            By accepting you agree to the terms above · Valid until {validUntil}
+          </p>
+        </div>
+
+        {/* Footer */}
+        <div className="q-footer q-pad" style={{ padding: "14px 36px", borderTop: "1px solid #EBEBEB", display: "flex", justifyContent: "space-between" }}>
+          <span style={{ fontSize: "10px", color: "#CCC", fontFamily: mono, letterSpacing: "0.04em" }}>{companyName} · {job.jobId}</span>
+          <span style={{ fontSize: "10px", color: "#CCC", fontFamily: mono, letterSpacing: "0.04em" }}>Powered by GUS</span>
+        </div>
+
       </div>
     </div>
   );
