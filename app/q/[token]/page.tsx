@@ -1,7 +1,7 @@
 "use client";
 
 import { use, useEffect, useState } from "react";
-import { mockJobs, mockCustomers, defaultPricingSettings, loadPricingSettings, loadLogo, loadEstimateOverride } from "@/lib/mockData";
+import { mockJobs, mockCustomers, defaultPricingSettings, loadPricingSettings, loadLogo, loadEstimateOverride, CustomLineItem } from "@/lib/mockData";
 import { calculateTax, formatTaxLabel } from "@/lib/taxEngine";
 
 type Response = "pending" | "accepted" | "declined";
@@ -39,6 +39,12 @@ export default function CustomerQuotePage({ params }: { params: Promise<{ token:
   const [partsWarranty, setPartsWarranty] = useState(defaultPricingSettings.partsWarranty);
   const [estimateNotes, setEstimateNotes] = useState("");
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [customLineItems, setCustomLineItems] = useState<CustomLineItem[]>([]);
+  const [discountEnabled, setDiscountEnabled] = useState(false);
+  const [discountType, setDiscountType] = useState<"percent" | "flat">("percent");
+  const [discountValue, setDiscountValue] = useState(0);
+  const [exclusions, setExclusions] = useState("");
+  const [showDetailedLineItems, setShowDetailedLineItems] = useState(true);
 
   const job = mockJobs.find(j => j.id === token);
 
@@ -77,6 +83,12 @@ export default function CustomerQuotePage({ params }: { params: Promise<{ token:
     setPrimaryEquipmentMarkup(override.primaryEquipmentMarkup ?? s.primaryEquipmentMarkup ?? 30);
     setAccessoriesMarkup(override.accessoriesMarkup ?? s.accessoriesMarkup ?? 20);
     setLogoUrl(loadLogo());
+    setCustomLineItems(override.customLineItems ?? []);
+    setDiscountEnabled(override.discountEnabled ?? false);
+    setDiscountType(override.discountType ?? "percent");
+    setDiscountValue(override.discountValue ?? 0);
+    setExclusions(override.exclusions ?? "");
+    setShowDetailedLineItems(override.showDetailedLineItems !== false);
     setLoaded(true);
   }, [token]);
 
@@ -99,7 +111,12 @@ export default function CustomerQuotePage({ params }: { params: Promise<{ token:
   const apprenticeTotal = includeApprentice ? apprenticeRate * apprenticeHours : 0;
   const effectiveCallOut = includeCallOut ? callOutFee : 0;
   const labourAndCallOut = journeymanTotal + apprenticeTotal + effectiveCallOut;
-  const subtotal = materialsWithMarkup + labourAndCallOut;
+  const customItemsTotal = customLineItems.reduce((s, item) => s + item.qty * item.unitPrice, 0);
+  const subtotalBeforeDiscount = materialsWithMarkup + labourAndCallOut + customItemsTotal;
+  const discountAmount = discountEnabled
+    ? (discountType === "percent" ? subtotalBeforeDiscount * discountValue / 100 : discountValue)
+    : 0;
+  const subtotal = subtotalBeforeDiscount - discountAmount;
   const taxResult = calculateTax(province, materialsWithMarkup, labourAndCallOut);
   const grandTotal = subtotal + taxResult.totalTax;
   const depositRequired = grandTotal >= depositThreshold;
@@ -304,49 +321,104 @@ export default function CustomerQuotePage({ params }: { params: Promise<{ token:
             </tr>
           </thead>
           <tbody>
-            {includeCallOut && (
+            {/* Detailed mode: individual labour rows */}
+            {showDetailedLineItems ? (
+              <>
+                {includeCallOut && (
+                  <tr>
+                    <td style={{ ...tdStyle, paddingLeft: "36px" }}>
+                      <div style={{ fontWeight: 600, color: "#111", fontSize: "13px" }}>Call-out</div>
+                    </td>
+                    <td style={{ ...tdStyle, ...monoCell, textAlign: "center" }}>1</td>
+                    <td style={{ ...tdStyle, ...monoCell, textAlign: "center" }}>${effectiveCallOut.toFixed(2)}</td>
+                    <td className="q-td-right" style={{ ...tdStyle, ...monoCell, textAlign: "right", paddingRight: "36px" }}>${effectiveCallOut.toFixed(2)}</td>
+                  </tr>
+                )}
+                {includeJourneyman && (
+                  <tr>
+                    <td style={{ ...tdStyle, paddingLeft: "36px" }}>
+                      <div style={{ fontWeight: 600, color: "#111", fontSize: "13px" }}>Journeyman labour</div>
+                      <div style={{ fontSize: "11px", color: "#AAA", marginTop: "2px" }}>Plumbing installation</div>
+                    </td>
+                    <td style={{ ...tdStyle, ...monoCell, textAlign: "center" }}>{journeymanHours} hrs</td>
+                    <td style={{ ...tdStyle, ...monoCell, textAlign: "center" }}>${journeymanRate.toFixed(2)}</td>
+                    <td className="q-td-right" style={{ ...tdStyle, ...monoCell, textAlign: "right", paddingRight: "36px" }}>${journeymanTotal.toFixed(2)}</td>
+                  </tr>
+                )}
+                {includeApprentice && apprenticeHours > 0 && (
+                  <tr>
+                    <td style={{ ...tdStyle, paddingLeft: "36px" }}>
+                      <div style={{ fontWeight: 600, color: "#111", fontSize: "13px" }}>Apprentice labour</div>
+                      <div style={{ fontSize: "11px", color: "#AAA", marginTop: "2px" }}>Plumbing installation</div>
+                    </td>
+                    <td style={{ ...tdStyle, ...monoCell, textAlign: "center" }}>{apprenticeHours} hrs</td>
+                    <td style={{ ...tdStyle, ...monoCell, textAlign: "center" }}>${apprenticeRate.toFixed(2)}</td>
+                    <td className="q-td-right" style={{ ...tdStyle, ...monoCell, textAlign: "right", paddingRight: "36px" }}>${apprenticeTotal.toFixed(2)}</td>
+                  </tr>
+                )}
+                {materialsWithMarkup > 0 && (
+                  <tr>
+                    <td style={{ ...tdStyle, paddingLeft: "36px" }}>
+                      <div style={{ fontWeight: 600, color: "#111", fontSize: "13px" }}>Materials &amp; equipment</div>
+                      <div style={{ fontSize: "11px", color: "#AAA", marginTop: "2px" }}>
+                        {job.parts?.[0]?.items[0]?.name.split("(")[0].trim()}{job.parts && job.parts.length > 1 ? ", fittings & connections" : ""}
+                      </div>
+                    </td>
+                    <td style={{ ...tdStyle, ...monoCell, textAlign: "center" }}>1</td>
+                    <td style={{ ...tdStyle, ...monoCell, textAlign: "center" }}>${materialsWithMarkup.toFixed(2)}</td>
+                    <td className="q-td-right" style={{ ...tdStyle, ...monoCell, textAlign: "right", paddingRight: "36px" }}>${materialsWithMarkup.toFixed(2)}</td>
+                  </tr>
+                )}
+              </>
+            ) : (
+              /* Lump-sum mode: Labour total + Materials total */
+              <>
+                {labourAndCallOut > 0 && (
+                  <tr>
+                    <td style={{ ...tdStyle, paddingLeft: "36px" }}>
+                      <div style={{ fontWeight: 600, color: "#111", fontSize: "13px" }}>Labour</div>
+                    </td>
+                    <td style={{ ...tdStyle, ...monoCell, textAlign: "center" }}>1</td>
+                    <td style={{ ...tdStyle, ...monoCell, textAlign: "center" }}>${labourAndCallOut.toFixed(2)}</td>
+                    <td className="q-td-right" style={{ ...tdStyle, ...monoCell, textAlign: "right", paddingRight: "36px" }}>${labourAndCallOut.toFixed(2)}</td>
+                  </tr>
+                )}
+                {materialsWithMarkup > 0 && (
+                  <tr>
+                    <td style={{ ...tdStyle, paddingLeft: "36px" }}>
+                      <div style={{ fontWeight: 600, color: "#111", fontSize: "13px" }}>Materials &amp; equipment</div>
+                    </td>
+                    <td style={{ ...tdStyle, ...monoCell, textAlign: "center" }}>1</td>
+                    <td style={{ ...tdStyle, ...monoCell, textAlign: "center" }}>${materialsWithMarkup.toFixed(2)}</td>
+                    <td className="q-td-right" style={{ ...tdStyle, ...monoCell, textAlign: "right", paddingRight: "36px" }}>${materialsWithMarkup.toFixed(2)}</td>
+                  </tr>
+                )}
+              </>
+            )}
+
+            {/* Custom line items — always shown individually */}
+            {customLineItems.filter(item => item.description || item.unitPrice > 0).map(item => (
+              <tr key={item.id}>
+                <td style={{ ...tdStyle, paddingLeft: "36px" }}>
+                  <div style={{ fontWeight: 600, color: "#111", fontSize: "13px" }}>{item.description || "Additional item"}</div>
+                </td>
+                <td style={{ ...tdStyle, ...monoCell, textAlign: "center" }}>{item.qty}</td>
+                <td style={{ ...tdStyle, ...monoCell, textAlign: "center" }}>${item.unitPrice.toFixed(2)}</td>
+                <td className="q-td-right" style={{ ...tdStyle, ...monoCell, textAlign: "right", paddingRight: "36px" }}>${(item.qty * item.unitPrice).toFixed(2)}</td>
+              </tr>
+            ))}
+
+            {/* Discount row */}
+            {discountEnabled && discountAmount > 0 && (
               <tr>
                 <td style={{ ...tdStyle, paddingLeft: "36px" }}>
-                  <div style={{ fontWeight: 600, color: "#111", fontSize: "13px" }}>Call-out</div>
+                  <div style={{ fontWeight: 600, color: "#555", fontSize: "13px" }}>Discount</div>
                 </td>
-                <td style={{ ...tdStyle, ...monoCell, textAlign: "center" }}>1</td>
-                <td style={{ ...tdStyle, ...monoCell, textAlign: "center" }}>${effectiveCallOut.toFixed(2)}</td>
-                <td className="q-td-right" style={{ ...tdStyle, ...monoCell, textAlign: "right", paddingRight: "36px" }}>${effectiveCallOut.toFixed(2)}</td>
-              </tr>
-            )}
-            {includeJourneyman && (
-              <tr>
-                <td style={{ ...tdStyle, paddingLeft: "36px" }}>
-                  <div style={{ fontWeight: 600, color: "#111", fontSize: "13px" }}>Journeyman labour</div>
-                  <div style={{ fontSize: "11px", color: "#AAA", marginTop: "2px" }}>Plumbing installation</div>
+                <td style={{ ...tdStyle, ...monoCell, textAlign: "center" }}>—</td>
+                <td style={{ ...tdStyle, ...monoCell, textAlign: "center" }}>
+                  {discountType === "percent" ? `${discountValue}%` : "—"}
                 </td>
-                <td style={{ ...tdStyle, ...monoCell, textAlign: "center" }}>{journeymanHours} hrs</td>
-                <td style={{ ...tdStyle, ...monoCell, textAlign: "center" }}>${journeymanRate.toFixed(2)}</td>
-                <td className="q-td-right" style={{ ...tdStyle, ...monoCell, textAlign: "right", paddingRight: "36px" }}>${journeymanTotal.toFixed(2)}</td>
-              </tr>
-            )}
-            {includeApprentice && apprenticeHours > 0 && (
-              <tr>
-                <td style={{ ...tdStyle, paddingLeft: "36px" }}>
-                  <div style={{ fontWeight: 600, color: "#111", fontSize: "13px" }}>Apprentice labour</div>
-                  <div style={{ fontSize: "11px", color: "#AAA", marginTop: "2px" }}>Plumbing installation</div>
-                </td>
-                <td style={{ ...tdStyle, ...monoCell, textAlign: "center" }}>{apprenticeHours} hrs</td>
-                <td style={{ ...tdStyle, ...monoCell, textAlign: "center" }}>${apprenticeRate.toFixed(2)}</td>
-                <td className="q-td-right" style={{ ...tdStyle, ...monoCell, textAlign: "right", paddingRight: "36px" }}>${apprenticeTotal.toFixed(2)}</td>
-              </tr>
-            )}
-            {materialsWithMarkup > 0 && (
-              <tr>
-                <td style={{ ...tdStyle, paddingLeft: "36px", borderBottom: "none" }}>
-                  <div style={{ fontWeight: 600, color: "#111", fontSize: "13px" }}>Materials &amp; equipment</div>
-                  <div style={{ fontSize: "11px", color: "#AAA", marginTop: "2px" }}>
-                    {job.parts?.[0]?.items[0]?.name.split("(")[0].trim()}{job.parts && job.parts.length > 1 ? ", fittings & connections" : ""}
-                  </div>
-                </td>
-                <td style={{ ...tdStyle, ...monoCell, textAlign: "center", borderBottom: "none" }}>1</td>
-                <td style={{ ...tdStyle, ...monoCell, textAlign: "center", borderBottom: "none" }}>${materialsWithMarkup.toFixed(2)}</td>
-                <td className="q-td-right" style={{ ...tdStyle, ...monoCell, textAlign: "right", paddingRight: "36px", borderBottom: "none" }}>${materialsWithMarkup.toFixed(2)}</td>
+                <td className="q-td-right" style={{ ...tdStyle, ...monoCell, textAlign: "right", paddingRight: "36px", color: "#777" }}>−${discountAmount.toFixed(2)}</td>
               </tr>
             )}
           </tbody>
@@ -382,8 +454,16 @@ export default function CustomerQuotePage({ params }: { params: Promise<{ token:
           </div>
         )}
 
+        {/* Exclusions */}
+        {exclusions && (
+          <div className="q-pad" style={{ padding: "16px 36px", borderTop: "1px solid #EBEBEB" }}>
+            <div style={sectionLabel}>Not included</div>
+            <div style={{ fontSize: "12.5px", color: "#777", lineHeight: 1.75 }}>{exclusions}</div>
+          </div>
+        )}
+
         {/* Terms */}
-        <div className="q-pad" style={{ padding: "20px 36px", borderTop: depositRequired ? "none" : "1px solid #EBEBEB", marginTop: depositRequired ? "0" : "0" }}>
+        <div className="q-pad" style={{ padding: "20px 36px", borderTop: "1px solid #EBEBEB", marginTop: 0 }}>
           <div style={sectionLabel}>Terms &amp; warranty</div>
           <div style={{ fontSize: "11px", color: "#AAA", lineHeight: 1.75 }}>
             {showWarranty && (

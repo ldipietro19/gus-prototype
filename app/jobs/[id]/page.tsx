@@ -2,7 +2,7 @@
 
 import { use, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { mockJobs, loadDynamicJobs, defaultPricingSettings, loadPricingSettings, loadEstimateOverride, saveEstimateOverride } from "@/lib/mockData";
+import { mockJobs, loadDynamicJobs, defaultPricingSettings, loadPricingSettings, loadEstimateOverride, saveEstimateOverride, CustomLineItem } from "@/lib/mockData";
 import { calculateTax, formatTaxLabel, PST_PROVINCES } from "@/lib/taxEngine";
 
 type Tab = "Design" | "BOM" | "Estimate";
@@ -34,6 +34,12 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
   const [answers, setAnswers] = useState<Record<number, string>>(
     Object.fromEntries((job?.todos ?? []).map((t, i) => [i, t.answer ?? ""]))
   );
+  const [customLineItems, setCustomLineItems] = useState<CustomLineItem[]>([]);
+  const [discountEnabled, setDiscountEnabled] = useState(false);
+  const [discountType, setDiscountType] = useState<"percent" | "flat">("percent");
+  const [discountValue, setDiscountValue] = useState(0);
+  const [exclusions, setExclusions] = useState("");
+  const [showDetailedLineItems, setShowDetailedLineItems] = useState(true);
   const [province, setProvince] = useState(defaultPricingSettings.province);
   const [pstRegistered, setPstRegistered] = useState(defaultPricingSettings.pstRegistered);
   const [showShareModal, setShowShareModal] = useState(false);
@@ -85,6 +91,12 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
       if (override.includeCallOut !== undefined) setIncludeCallOut(override.includeCallOut);
       setPrimaryEquipmentMarkup(override.primaryEquipmentMarkup ?? s.primaryEquipmentMarkup ?? 30);
       setAccessoriesMarkup(override.accessoriesMarkup ?? s.accessoriesMarkup ?? 20);
+      setCustomLineItems(override.customLineItems ?? []);
+      setDiscountEnabled(override.discountEnabled ?? false);
+      setDiscountType(override.discountType ?? "percent");
+      setDiscountValue(override.discountValue ?? 0);
+      setExclusions(override.exclusions ?? "");
+      setShowDetailedLineItems(override.showDetailedLineItems !== false);
     } else {
       setJourneymanRate(s.journeymanRate ?? 113);
       setApprenticeRate(s.apprenticeRate ?? 65);
@@ -121,6 +133,13 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settingsLoaded, journeymanRate, journeymanHours, includeJourneyman, apprenticeRate, apprenticeHours, includeApprentice, callOutFee, includeCallOut, primaryEquipmentMarkup, accessoriesMarkup]);
 
+  // Auto-save custom line items
+  useEffect(() => {
+    if (!settingsLoaded || !job?.id) return;
+    saveEstimateOverride(job.id, { customLineItems });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settingsLoaded, customLineItems, job?.id]);
+
   if (!job) return (
     <div style={{ padding: "60px", textAlign: "center", color: "var(--text-muted)" }}>
       Job not found. <button onClick={() => router.push("/jobs")} style={{ color: "var(--orange)", background: "none", border: "none", cursor: "pointer", textDecoration: "underline" }}>Back to Jobs</button>
@@ -151,12 +170,27 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
   const journeymanTotal = includeJourneyman ? journeymanRate * journeymanHours : 0;
   const apprenticeTotal = includeApprentice ? apprenticeRate * apprenticeHours : 0;
   const totalLabour     = journeymanTotal + apprenticeTotal + (includeCallOut ? callOutFee : 0);
-  const subtotal        = totalMaterialsCost + totalLabour;
+  const customItemsTotal = customLineItems.reduce((s, item) => s + item.qty * item.unitPrice, 0);
+  const subtotalBeforeDiscount = totalMaterialsCost + totalLabour + customItemsTotal;
+  const discountAmount  = discountEnabled
+    ? (discountType === "percent" ? subtotalBeforeDiscount * discountValue / 100 : discountValue)
+    : 0;
+  const subtotal        = subtotalBeforeDiscount - discountAmount;
 
   // Tax engine — reads province from settings (loaded in useEffect)
   const taxResult = calculateTax(province, totalMaterialsCost, totalLabour);
   const showPstWarning = PST_PROVINCES.includes(province) && !pstRegistered;
   const grandTotal = subtotal + taxResult.totalTax;
+
+  const addCustomItem = () => {
+    setCustomLineItems(prev => [...prev, { id: `cli_${Date.now()}`, description: "", qty: 1, unitPrice: 0 }]);
+  };
+  const updateCustomItem = (idx: number, field: keyof CustomLineItem, value: string | number) => {
+    setCustomLineItems(prev => prev.map((item, i) => i === idx ? { ...item, [field]: value } : item));
+  };
+  const removeCustomItem = (idx: number) => {
+    setCustomLineItems(prev => prev.filter((_, i) => i !== idx));
+  };
 
   const shareUrl = `${shareOrigin}/q/${job.id}`;
   const copyLink = () => {
@@ -566,6 +600,68 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
                 <span style={{ fontSize: "13.5px", fontWeight: 600, minWidth: "110px", textAlign: "right", fontFamily: "var(--font-mono)", color: "var(--text)" }}>${totalLabour.toFixed(2)} CAD</span>
               </div>
 
+              {/* ── Additional items section ── */}
+              <div style={{ padding: "7px 20px", background: "rgba(255,255,255,0.02)", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span style={{ fontSize: "10px", fontFamily: "var(--font-mono)", color: "var(--text-muted)", letterSpacing: "0.12em", textTransform: "uppercase" }}>Additional Items</span>
+                <button onClick={addCustomItem} style={{ fontSize: "11px", color: "var(--teal)", background: "none", border: "1px solid rgba(26,191,191,0.35)", borderRadius: "4px", padding: "3px 10px", cursor: "pointer", fontFamily: "var(--font-mono)" }}>+ Add item</button>
+              </div>
+
+              {customLineItems.length === 0 && (
+                <div style={{ padding: "11px 20px", borderBottom: "1px solid var(--border-light)" }}>
+                  <span style={{ fontSize: "12px", color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>No additional items — permits, disposal, travel, etc.</span>
+                </div>
+              )}
+
+              {customLineItems.map((item, idx) => (
+                <div key={item.id} style={{ display: "flex", alignItems: "center", gap: "8px", padding: "10px 20px", borderBottom: "1px solid var(--border-light)", flexWrap: "wrap" }}>
+                  <input
+                    value={item.description}
+                    onChange={e => updateCustomItem(idx, "description", e.target.value)}
+                    placeholder="e.g. Permit fee, Disposal"
+                    style={{ ...inputStyle, flex: "1 1 140px", minWidth: "120px", padding: "5px 10px" }}
+                  />
+                  <div style={{ display: "flex", alignItems: "center", gap: "6px", flexShrink: 0 }}>
+                    <input type="number" min="1" value={item.qty} onChange={e => updateCustomItem(idx, "qty", Math.max(1, +e.target.value))}
+                      style={{ ...inputStyle, width: "48px", padding: "5px 6px", textAlign: "center" }} />
+                    <span style={{ fontSize: "11px", color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>×</span>
+                    <div style={{ display: "flex", alignItems: "center", border: "1px solid var(--border)", borderRadius: "6px", overflow: "hidden" }}>
+                      <span style={prefixStyle}>$</span>
+                      <input type="number" min="0" step="0.01" value={item.unitPrice} onChange={e => updateCustomItem(idx, "unitPrice", +e.target.value)}
+                        style={{ ...inputStyle, width: "72px", padding: "5px 8px", border: "none", borderRadius: 0, textAlign: "right" }} />
+                    </div>
+                    <span style={{ fontSize: "13px", minWidth: "80px", textAlign: "right", fontFamily: "var(--font-mono)", color: "var(--text)" }}>${(item.qty * item.unitPrice).toFixed(2)}</span>
+                    <button onClick={() => removeCustomItem(idx)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", fontSize: "18px", lineHeight: 1, padding: "0 2px", flexShrink: 0 }}>×</button>
+                  </div>
+                </div>
+              ))}
+
+              {/* Discount */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "11px 20px", borderBottom: "1px solid var(--border)", opacity: discountEnabled ? 1 : 0.6 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                  <button onClick={() => { const v = !discountEnabled; setDiscountEnabled(v); saveEstimateOverride(job.id, { discountEnabled: v }); }}
+                    style={{ width: "34px", height: "19px", borderRadius: "10px", background: discountEnabled ? "var(--orange)" : "#3D6480", border: "none", cursor: "pointer", position: "relative", flexShrink: 0, transition: "background 0.2s" }}>
+                    <span style={{ position: "absolute", top: "2px", left: discountEnabled ? "17px" : "2px", width: "15px", height: "15px", borderRadius: "50%", background: "white", transition: "left 0.2s", display: "block" }} />
+                  </button>
+                  <span style={{ fontSize: "13.5px", color: "var(--text-secondary)" }}>Discount</span>
+                  <select value={discountType} onChange={e => { const v = e.target.value as "percent" | "flat"; setDiscountType(v); saveEstimateOverride(job.id, { discountType: v }); }}
+                    style={{ ...inputStyle, padding: "3px 8px", fontSize: "12px", cursor: "pointer" }}>
+                    <option value="percent">%</option>
+                    <option value="flat">$ flat</option>
+                  </select>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <div style={{ display: "flex", alignItems: "center", border: "1px solid var(--border)", borderRadius: "6px", overflow: "hidden" }}>
+                    {discountType === "flat" && <span style={prefixStyle}>$</span>}
+                    <input type="number" min="0" step="0.01" value={discountValue} onChange={e => { const v = +e.target.value; setDiscountValue(v); saveEstimateOverride(job.id, { discountValue: v }); }}
+                      style={{ ...inputStyle, width: "60px", padding: "4px 8px", border: "none", borderRadius: 0, textAlign: "right" }} />
+                    {discountType === "percent" && <span style={suffixStyle}>%</span>}
+                  </div>
+                  <span style={{ fontSize: "13.5px", minWidth: "110px", textAlign: "right", fontFamily: "var(--font-mono)", color: discountEnabled ? "#f87171" : "var(--text)", textDecoration: discountEnabled ? "none" : "line-through" }}>
+                    −${discountAmount.toFixed(2)} CAD
+                  </span>
+                </div>
+              </div>
+
               {/* Subtotal */}
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "13px 20px", borderBottom: "1px solid var(--border)" }}>
                 <span style={{ fontSize: "14px", color: "var(--text-secondary)" }}>Subtotal</span>
@@ -594,6 +690,36 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
                 <span style={{ fontFamily: "var(--font-bebas)", fontSize: "20px", letterSpacing: "0.06em", color: "var(--text)", fontWeight: 700 }}>Grand Total</span>
                 <span style={{ fontFamily: "var(--font-bebas)", fontSize: "22px", letterSpacing: "0.04em", color: "var(--orange)" }}>${grandTotal.toFixed(2)} CAD</span>
               </div>
+            </div>
+
+            {/* ── Exclusions ── */}
+            <div style={{ marginTop: "28px" }}>
+              <p style={{ fontFamily: "var(--font-mono)", fontSize: "9px", color: "var(--teal)", textTransform: "uppercase", letterSpacing: "0.2em", marginBottom: "8px" }}>// Exclusions</p>
+              <h2 style={{ fontFamily: "var(--font-bebas)", fontSize: "22px", letterSpacing: "0.04em", marginBottom: "6px", color: "var(--text)" }}>Not Included</h2>
+              <p style={{ fontSize: "12.5px", color: "var(--text-muted)", marginBottom: "10px", lineHeight: 1.6 }}>
+                Anything explicitly not covered — shown on the customer quote to manage expectations.
+              </p>
+              <textarea
+                value={exclusions}
+                onChange={e => { setExclusions(e.target.value); saveEstimateOverride(job.id, { exclusions: e.target.value }); }}
+                placeholder="e.g. Annual filter replacement, permit procurement, electrical work..."
+                rows={3}
+                style={{ width: "100%", padding: "12px 14px", border: "1px solid var(--border)", borderRadius: "8px", fontSize: "13.5px", resize: "vertical", color: "var(--text)", outline: "none", lineHeight: 1.6, background: "rgba(255,255,255,0.05)", fontFamily: "var(--font-sans)" }}
+              />
+            </div>
+
+            {/* ── Quote presentation toggle ── */}
+            <div style={{ marginTop: "20px", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 16px", border: "1px solid var(--border)", borderRadius: "8px", background: "var(--bg)" }}>
+              <div>
+                <p style={{ fontSize: "13px", fontWeight: 500, color: "var(--text)", marginBottom: "2px" }}>Itemised line items on quote</p>
+                <p style={{ fontSize: "12px", color: "var(--text-muted)", lineHeight: 1.5 }}>
+                  {showDetailedLineItems ? "Showing full rate / hours breakdown" : "Showing Labour + Materials totals only"}
+                </p>
+              </div>
+              <button onClick={() => { const v = !showDetailedLineItems; setShowDetailedLineItems(v); saveEstimateOverride(job.id, { showDetailedLineItems: v }); }}
+                style={{ width: "44px", height: "24px", borderRadius: "12px", background: showDetailedLineItems ? "var(--orange)" : "#3D6480", border: "none", cursor: "pointer", position: "relative", flexShrink: 0, transition: "background 0.2s", marginLeft: "20px" }}>
+                <span style={{ position: "absolute", top: "3px", left: showDetailedLineItems ? "23px" : "3px", width: "18px", height: "18px", borderRadius: "50%", background: "white", transition: "left 0.2s", display: "block" }} />
+              </button>
             </div>
 
             {/* ── Follow-up schedule ── */}

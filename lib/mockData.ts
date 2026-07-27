@@ -200,6 +200,13 @@ export const defaultPricingSettings: PricingSettings = {
 };
 
 // ── Per-job estimate overrides ────────────────────────────────────────────────
+export type CustomLineItem = {
+  id: string;
+  description: string;
+  qty: number;
+  unitPrice: number;
+};
+
 export interface EstimateOverride {
   estimateNotes: string;     // customer-facing scope (separate from internal job description)
   // Financial state — mirrors estimate page controls
@@ -213,6 +220,16 @@ export interface EstimateOverride {
   includeCallOut?: boolean;
   primaryEquipmentMarkup?: number;
   accessoriesMarkup?: number;
+  // Ad-hoc line items
+  customLineItems?: CustomLineItem[];
+  // Discount
+  discountEnabled?: boolean;
+  discountType?: "percent" | "flat";
+  discountValue?: number;
+  // Exclusions (shown on customer quote)
+  exclusions?: string;
+  // Quote presentation: true = full breakdown, false = Labour + Materials lump sum
+  showDetailedLineItems?: boolean;
 }
 
 const defaultEstimateOverride: EstimateOverride = {
