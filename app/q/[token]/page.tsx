@@ -44,7 +44,7 @@ export default function CustomerQuotePage({ params }: { params: Promise<{ token:
   const [discountType, setDiscountType] = useState<"percent" | "flat">("percent");
   const [discountValue, setDiscountValue] = useState(0);
   const [exclusions, setExclusions] = useState("");
-  const [showDetailedLineItems, setShowDetailedLineItems] = useState(true);
+  const [showDetailedLineItems, setShowDetailedLineItems] = useState(false);
 
   const job = mockJobs.find(j => j.id === token);
 
@@ -88,7 +88,7 @@ export default function CustomerQuotePage({ params }: { params: Promise<{ token:
     setDiscountType(override.discountType ?? "percent");
     setDiscountValue(override.discountValue ?? 0);
     setExclusions(override.exclusions ?? "");
-    setShowDetailedLineItems(override.showDetailedLineItems !== false);
+    setShowDetailedLineItems(override.showDetailedLineItems === true);
     setLoaded(true);
   }, [token]);
 
@@ -357,9 +357,9 @@ export default function CustomerQuotePage({ params }: { params: Promise<{ token:
               </tr>
             )}
 
-            {/* Materials — summary (default) or itemised */}
+            {/* Materials — summary (default) or itemized */}
             {showDetailedLineItems ? (
-              /* Itemised: every BOM part listed, grouped by category */
+              /* Itemized: every BOM part listed, grouped by category */
               <>
                 {job.parts?.map(group => {
                   const isPrimary = group.category === "Primary Equipment";
@@ -395,7 +395,7 @@ export default function CustomerQuotePage({ params }: { params: Promise<{ token:
                 {primaryMarkupTotal > 0 && (
                   <tr>
                     <td style={{ ...tdStyle, paddingLeft: "36px" }}>
-                      <div style={{ fontWeight: 600, color: "#111", fontSize: "13px" }}>Primary equipment</div>
+                      <div style={{ fontWeight: 600, color: "#111", fontSize: "13px" }}>Primary Equipment</div>
                       <div style={{ fontSize: "11px", color: "#AAA", marginTop: "2px" }}>
                         {job.parts?.find(g => g.category === "Primary Equipment")?.items[0]?.name.split("(")[0].trim()}
                       </div>
@@ -408,7 +408,7 @@ export default function CustomerQuotePage({ params }: { params: Promise<{ token:
                 {otherMarkupTotal > 0 && (
                   <tr>
                     <td style={{ ...tdStyle, paddingLeft: "36px" }}>
-                      <div style={{ fontWeight: 600, color: "#111", fontSize: "13px" }}>Parts, fittings &amp; consumables</div>
+                      <div style={{ fontWeight: 600, color: "#111", fontSize: "13px" }}>Parts, Fittings &amp; Consumables</div>
                     </td>
                     <td style={{ ...tdStyle, ...monoCell, textAlign: "center" }}>1</td>
                     <td style={{ ...tdStyle, ...monoCell, textAlign: "center" }}>${otherMarkupTotal.toFixed(2)}</td>

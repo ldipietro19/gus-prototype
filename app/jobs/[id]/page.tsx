@@ -39,7 +39,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
   const [discountType, setDiscountType] = useState<"percent" | "flat">("percent");
   const [discountValue, setDiscountValue] = useState(0);
   const [exclusions, setExclusions] = useState("");
-  const [showDetailedLineItems, setShowDetailedLineItems] = useState(true);
+  const [showDetailedLineItems, setShowDetailedLineItems] = useState(false);
   const [province, setProvince] = useState(defaultPricingSettings.province);
   const [pstRegistered, setPstRegistered] = useState(defaultPricingSettings.pstRegistered);
   const [showShareModal, setShowShareModal] = useState(false);
@@ -96,7 +96,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
       setDiscountType(override.discountType ?? "percent");
       setDiscountValue(override.discountValue ?? 0);
       setExclusions(override.exclusions ?? "");
-      setShowDetailedLineItems(override.showDetailedLineItems !== false);
+      setShowDetailedLineItems(override.showDetailedLineItems === true);
     } else {
       setJourneymanRate(s.journeymanRate ?? 113);
       setApprenticeRate(s.apprenticeRate ?? 65);
@@ -494,13 +494,13 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
 
               {/* Primary materials */}
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "11px 20px", borderBottom: "1px solid var(--border-light)" }}>
-                <span style={{ fontSize: "13.5px", color: "var(--text-secondary)" }}>Primary materials</span>
+                <span style={{ fontSize: "13.5px", color: "var(--text-secondary)" }}>Primary Equipment</span>
                 <span style={{ fontSize: "13.5px", minWidth: "110px", textAlign: "right", fontFamily: "var(--font-mono)", color: "var(--text)" }}>${primaryCost.toFixed(2)} CAD</span>
               </div>
 
               {/* Primary equipment markup */}
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "11px 20px", borderBottom: "1px solid var(--border-light)" }}>
-                <span style={{ fontSize: "13.5px", color: "var(--text-secondary)" }}>Primary equipment markup</span>
+                <span style={{ fontSize: "13.5px", color: "var(--text-secondary)" }}>Primary Equipment Markup</span>
                 <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                   <div style={{ display: "flex", alignItems: "center", border: "1px solid var(--border)", borderRadius: "6px", overflow: "hidden" }}>
                     <input type="number" value={primaryEquipmentMarkup} onChange={e => setPrimaryEquipmentMarkup(+e.target.value)} style={{ ...inputStyle, width: "48px", padding: "4px 8px", border: "none", borderRadius: 0, textAlign: "right" }} />
@@ -512,13 +512,13 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
 
               {/* Parts, fittings & consumables */}
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "11px 20px", borderBottom: "1px solid var(--border-light)" }}>
-                <span style={{ fontSize: "13.5px", color: "var(--text-secondary)" }}>Parts, fittings &amp; consumables</span>
+                <span style={{ fontSize: "13.5px", color: "var(--text-secondary)" }}>Parts, Fittings &amp; Consumables</span>
                 <span style={{ fontSize: "13.5px", minWidth: "110px", textAlign: "right", fontFamily: "var(--font-mono)", color: "var(--text)" }}>${otherCost.toFixed(2)} CAD</span>
               </div>
 
               {/* Parts & consumables markup */}
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "11px 20px", borderBottom: "1px solid var(--border)" }}>
-                <span style={{ fontSize: "13.5px", color: "var(--text-secondary)" }}>Parts &amp; consumables markup</span>
+                <span style={{ fontSize: "13.5px", color: "var(--text-secondary)" }}>Parts, Fittings &amp; Consumables Markup</span>
                 <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                   <div style={{ display: "flex", alignItems: "center", border: "1px solid var(--border)", borderRadius: "6px", overflow: "hidden" }}>
                     <input type="number" value={accessoriesMarkup} onChange={e => setAccessoriesMarkup(+e.target.value)} style={{ ...inputStyle, width: "48px", padding: "4px 8px", border: "none", borderRadius: 0, textAlign: "right" }} />
@@ -701,9 +701,9 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
             {/* ── Itemised estimate toggle ── */}
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 16px", border: "1px solid var(--border)", borderRadius: "8px", background: "var(--bg)", marginTop: "16px" }}>
               <div>
-                <p style={{ fontSize: "13px", fontWeight: 500, color: "var(--text)", marginBottom: "2px" }}>Itemised estimate</p>
+                <p style={{ fontSize: "13px", fontWeight: 500, color: "var(--text)", marginBottom: "2px" }}>Itemized estimate</p>
                 <p style={{ fontSize: "12px", color: "var(--text-muted)", lineHeight: 1.5 }}>
-                  {showDetailedLineItems ? "Quote shows every part line by line, grouped by category" : "Quote shows Primary Equipment + Parts & Consumables totals"}
+                  {showDetailedLineItems ? "Quote shows every part line by line, grouped by category" : "Quote shows Primary Equipment + Parts, Fittings & Consumables totals"}
                 </p>
               </div>
               <button onClick={() => { const v = !showDetailedLineItems; setShowDetailedLineItems(v); saveEstimateOverride(job.id, { showDetailedLineItems: v }); }}

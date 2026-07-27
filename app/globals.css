@@ -25,18 +25,20 @@
   --blue-bg: rgba(59, 130, 246, 0.15);
 }
 
-/* ── Light mode overrides ─────────────────────────────────────────────────── */
+/* ── Light mode overrides — V1.3 spec (GUS Light Mode Brand Guidelines, Section 03A) ── */
 [data-theme="light"] {
   color-scheme: light;
-  --bg: #FFFFFF;
-  --bg-page: #EEF3F8;
-  --bg-deep: #DDE5EE;
-  --sidebar-bg: #E1EAF3;
-  --border: rgba(0, 0, 0, 0.09);
-  --border-light: rgba(0, 0, 0, 0.05);
-  --text: #0D1B2E;
-  --text-secondary: #2D4A6E;
-  --text-muted: #5B7A94;
+  --bg: #FFFFFF;               /* Card / panel surfaces */
+  --bg-page: #F0F6FF;          /* Page background — Off-White */
+  --bg-deep: #E2EDF8;          /* Input fields, secondary surfaces — Cream */
+  --sidebar-bg: #F0F6FF;       /* Sidebar — Off-White */
+  --border: #C8DCE8;           /* 1px borders on cards and inputs — Mgray */
+  --border-light: #E2EDF8;     /* Subtle dividers — Cream */
+  --text: #050F1A;             /* Primary text — Near Black */
+  --text-secondary: #3D6480;   /* Secondary text, labels — Slate */
+  --text-muted: #7AAFC8;       /* Placeholder / disabled only — Mist */
+  --orange-text: #C4530D;      /* Orange as text / icon on light bg — WCAG AA */
+  --teal-text: #148F8F;        /* Teal as text / icon on light bg — WCAG AA */
   --green-bg: rgba(16, 185, 129, 0.12);
   --blue-bg: rgba(59, 130, 246, 0.12);
 }
@@ -52,7 +54,7 @@
 [data-theme="light"] input,
 [data-theme="light"] textarea,
 [data-theme="light"] select {
-  background: var(--bg);
+  background: var(--bg-deep);  /* Cream fill for inputs */
   color: var(--text);
 }
 
