@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
+import React, { use, useEffect, useState } from "react";
 import { mockJobs, mockCustomers, defaultPricingSettings, loadPricingSettings, loadLogo, loadEstimateOverride, CustomLineItem } from "@/lib/mockData";
 import { calculateTax, formatTaxLabel } from "@/lib/taxEngine";
 
@@ -106,7 +106,9 @@ export default function CustomerQuotePage({ params }: { params: Promise<{ token:
   const otherItems   = job?.parts?.filter(g => g.category !== "Primary Equipment").flatMap(g => g.items) ?? [];
   const primaryCost  = primaryItems.reduce((s, i) => s + i.qty * i.unit, 0);
   const otherCost    = otherItems.reduce((s, i) => s + i.qty * i.unit, 0);
-  const materialsWithMarkup = primaryCost * (1 + primaryEquipmentMarkup / 100) + otherCost * (1 + accessoriesMarkup / 100);
+  const primaryMarkupTotal = primaryCost * (1 + primaryEquipmentMarkup / 100);
+  const otherMarkupTotal   = otherCost * (1 + accessoriesMarkup / 100);
+  const materialsWithMarkup = primaryMarkupTotal + otherMarkupTotal;
   const journeymanTotal = includeJourneyman ? journeymanRate * journeymanHours : 0;
   const apprenticeTotal = includeApprentice ? apprenticeRate * apprenticeHours : 0;
   const effectiveCallOut = includeCallOut ? callOutFee : 0;
@@ -321,76 +323,96 @@ export default function CustomerQuotePage({ params }: { params: Promise<{ token:
             </tr>
           </thead>
           <tbody>
-            {/* Detailed mode: individual labour rows */}
+            {/* Labour rows — always shown individually */}
+            {includeCallOut && (
+              <tr>
+                <td style={{ ...tdStyle, paddingLeft: "36px" }}>
+                  <div style={{ fontWeight: 600, color: "#111", fontSize: "13px" }}>Call-out</div>
+                </td>
+                <td style={{ ...tdStyle, ...monoCell, textAlign: "center" }}>1</td>
+                <td style={{ ...tdStyle, ...monoCell, textAlign: "center" }}>${effectiveCallOut.toFixed(2)}</td>
+                <td className="q-td-right" style={{ ...tdStyle, ...monoCell, textAlign: "right", paddingRight: "36px" }}>${effectiveCallOut.toFixed(2)}</td>
+              </tr>
+            )}
+            {includeJourneyman && (
+              <tr>
+                <td style={{ ...tdStyle, paddingLeft: "36px" }}>
+                  <div style={{ fontWeight: 600, color: "#111", fontSize: "13px" }}>Journeyman labour</div>
+                  <div style={{ fontSize: "11px", color: "#AAA", marginTop: "2px" }}>Plumbing installation</div>
+                </td>
+                <td style={{ ...tdStyle, ...monoCell, textAlign: "center" }}>{journeymanHours} hrs</td>
+                <td style={{ ...tdStyle, ...monoCell, textAlign: "center" }}>${journeymanRate.toFixed(2)}</td>
+                <td className="q-td-right" style={{ ...tdStyle, ...monoCell, textAlign: "right", paddingRight: "36px" }}>${journeymanTotal.toFixed(2)}</td>
+              </tr>
+            )}
+            {includeApprentice && apprenticeHours > 0 && (
+              <tr>
+                <td style={{ ...tdStyle, paddingLeft: "36px" }}>
+                  <div style={{ fontWeight: 600, color: "#111", fontSize: "13px" }}>Apprentice labour</div>
+                  <div style={{ fontSize: "11px", color: "#AAA", marginTop: "2px" }}>Plumbing installation</div>
+                </td>
+                <td style={{ ...tdStyle, ...monoCell, textAlign: "center" }}>{apprenticeHours} hrs</td>
+                <td style={{ ...tdStyle, ...monoCell, textAlign: "center" }}>${apprenticeRate.toFixed(2)}</td>
+                <td className="q-td-right" style={{ ...tdStyle, ...monoCell, textAlign: "right", paddingRight: "36px" }}>${apprenticeTotal.toFixed(2)}</td>
+              </tr>
+            )}
+
+            {/* Materials — summary (default) or itemised */}
             {showDetailedLineItems ? (
+              /* Itemised: every BOM part listed, grouped by category */
               <>
-                {includeCallOut && (
+                {job.parts?.map(group => {
+                  const isPrimary = group.category === "Primary Equipment";
+                  const markup = isPrimary ? primaryEquipmentMarkup : accessoriesMarkup;
+                  const label = isPrimary ? "Primary Equipment" : "Parts, Fittings & Consumables";
+                  return (
+                    <React.Fragment key={group.category}>
+                      <tr>
+                        <td colSpan={4} style={{ padding: "8px 36px 4px", background: "#F8F8F8", borderBottom: "1px solid #EBEBEB" }}>
+                          <span style={{ fontFamily: mono, fontSize: "9px", fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase", color: "#999" }}>{label}</span>
+                        </td>
+                      </tr>
+                      {group.items.map((item, idx) => {
+                        const markedUpUnit = item.unit * (1 + markup / 100);
+                        return (
+                          <tr key={idx}>
+                            <td style={{ ...tdStyle, paddingLeft: "36px" }}>
+                              <div style={{ fontWeight: 500, color: "#111", fontSize: "13px", lineHeight: 1.4 }}>{item.name.split("(")[0].trim()}</div>
+                            </td>
+                            <td style={{ ...tdStyle, ...monoCell, textAlign: "center" }}>{item.qty}</td>
+                            <td style={{ ...tdStyle, ...monoCell, textAlign: "center" }}>${markedUpUnit.toFixed(2)}</td>
+                            <td className="q-td-right" style={{ ...tdStyle, ...monoCell, textAlign: "right", paddingRight: "36px" }}>${(item.qty * markedUpUnit).toFixed(2)}</td>
+                          </tr>
+                        );
+                      })}
+                    </React.Fragment>
+                  );
+                })}
+              </>
+            ) : (
+              /* Summary (default): two category rows with marked-up totals */
+              <>
+                {primaryMarkupTotal > 0 && (
                   <tr>
                     <td style={{ ...tdStyle, paddingLeft: "36px" }}>
-                      <div style={{ fontWeight: 600, color: "#111", fontSize: "13px" }}>Call-out</div>
-                    </td>
-                    <td style={{ ...tdStyle, ...monoCell, textAlign: "center" }}>1</td>
-                    <td style={{ ...tdStyle, ...monoCell, textAlign: "center" }}>${effectiveCallOut.toFixed(2)}</td>
-                    <td className="q-td-right" style={{ ...tdStyle, ...monoCell, textAlign: "right", paddingRight: "36px" }}>${effectiveCallOut.toFixed(2)}</td>
-                  </tr>
-                )}
-                {includeJourneyman && (
-                  <tr>
-                    <td style={{ ...tdStyle, paddingLeft: "36px" }}>
-                      <div style={{ fontWeight: 600, color: "#111", fontSize: "13px" }}>Journeyman labour</div>
-                      <div style={{ fontSize: "11px", color: "#AAA", marginTop: "2px" }}>Plumbing installation</div>
-                    </td>
-                    <td style={{ ...tdStyle, ...monoCell, textAlign: "center" }}>{journeymanHours} hrs</td>
-                    <td style={{ ...tdStyle, ...monoCell, textAlign: "center" }}>${journeymanRate.toFixed(2)}</td>
-                    <td className="q-td-right" style={{ ...tdStyle, ...monoCell, textAlign: "right", paddingRight: "36px" }}>${journeymanTotal.toFixed(2)}</td>
-                  </tr>
-                )}
-                {includeApprentice && apprenticeHours > 0 && (
-                  <tr>
-                    <td style={{ ...tdStyle, paddingLeft: "36px" }}>
-                      <div style={{ fontWeight: 600, color: "#111", fontSize: "13px" }}>Apprentice labour</div>
-                      <div style={{ fontSize: "11px", color: "#AAA", marginTop: "2px" }}>Plumbing installation</div>
-                    </td>
-                    <td style={{ ...tdStyle, ...monoCell, textAlign: "center" }}>{apprenticeHours} hrs</td>
-                    <td style={{ ...tdStyle, ...monoCell, textAlign: "center" }}>${apprenticeRate.toFixed(2)}</td>
-                    <td className="q-td-right" style={{ ...tdStyle, ...monoCell, textAlign: "right", paddingRight: "36px" }}>${apprenticeTotal.toFixed(2)}</td>
-                  </tr>
-                )}
-                {materialsWithMarkup > 0 && (
-                  <tr>
-                    <td style={{ ...tdStyle, paddingLeft: "36px" }}>
-                      <div style={{ fontWeight: 600, color: "#111", fontSize: "13px" }}>Materials &amp; equipment</div>
+                      <div style={{ fontWeight: 600, color: "#111", fontSize: "13px" }}>Primary equipment</div>
                       <div style={{ fontSize: "11px", color: "#AAA", marginTop: "2px" }}>
-                        {job.parts?.[0]?.items[0]?.name.split("(")[0].trim()}{job.parts && job.parts.length > 1 ? ", fittings & connections" : ""}
+                        {job.parts?.find(g => g.category === "Primary Equipment")?.items[0]?.name.split("(")[0].trim()}
                       </div>
                     </td>
                     <td style={{ ...tdStyle, ...monoCell, textAlign: "center" }}>1</td>
-                    <td style={{ ...tdStyle, ...monoCell, textAlign: "center" }}>${materialsWithMarkup.toFixed(2)}</td>
-                    <td className="q-td-right" style={{ ...tdStyle, ...monoCell, textAlign: "right", paddingRight: "36px" }}>${materialsWithMarkup.toFixed(2)}</td>
+                    <td style={{ ...tdStyle, ...monoCell, textAlign: "center" }}>${primaryMarkupTotal.toFixed(2)}</td>
+                    <td className="q-td-right" style={{ ...tdStyle, ...monoCell, textAlign: "right", paddingRight: "36px" }}>${primaryMarkupTotal.toFixed(2)}</td>
                   </tr>
                 )}
-              </>
-            ) : (
-              /* Lump-sum mode: Labour total + Materials total */
-              <>
-                {labourAndCallOut > 0 && (
+                {otherMarkupTotal > 0 && (
                   <tr>
                     <td style={{ ...tdStyle, paddingLeft: "36px" }}>
-                      <div style={{ fontWeight: 600, color: "#111", fontSize: "13px" }}>Labour</div>
+                      <div style={{ fontWeight: 600, color: "#111", fontSize: "13px" }}>Parts, fittings &amp; consumables</div>
                     </td>
                     <td style={{ ...tdStyle, ...monoCell, textAlign: "center" }}>1</td>
-                    <td style={{ ...tdStyle, ...monoCell, textAlign: "center" }}>${labourAndCallOut.toFixed(2)}</td>
-                    <td className="q-td-right" style={{ ...tdStyle, ...monoCell, textAlign: "right", paddingRight: "36px" }}>${labourAndCallOut.toFixed(2)}</td>
-                  </tr>
-                )}
-                {materialsWithMarkup > 0 && (
-                  <tr>
-                    <td style={{ ...tdStyle, paddingLeft: "36px" }}>
-                      <div style={{ fontWeight: 600, color: "#111", fontSize: "13px" }}>Materials &amp; equipment</div>
-                    </td>
-                    <td style={{ ...tdStyle, ...monoCell, textAlign: "center" }}>1</td>
-                    <td style={{ ...tdStyle, ...monoCell, textAlign: "center" }}>${materialsWithMarkup.toFixed(2)}</td>
-                    <td className="q-td-right" style={{ ...tdStyle, ...monoCell, textAlign: "right", paddingRight: "36px" }}>${materialsWithMarkup.toFixed(2)}</td>
+                    <td style={{ ...tdStyle, ...monoCell, textAlign: "center" }}>${otherMarkupTotal.toFixed(2)}</td>
+                    <td className="q-td-right" style={{ ...tdStyle, ...monoCell, textAlign: "right", paddingRight: "36px" }}>${otherMarkupTotal.toFixed(2)}</td>
                   </tr>
                 )}
               </>
