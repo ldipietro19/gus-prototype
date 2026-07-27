@@ -456,21 +456,6 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
         {tab === "Estimate" && (
           <div style={{ maxWidth: "680px", margin: "0 auto", padding: "32px 24px" }}>
 
-            {/* ── Itemised estimate toggle ── */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 16px", border: "1px solid var(--border)", borderRadius: "8px", background: "var(--bg)", marginBottom: "32px" }}>
-              <div>
-                <p style={{ fontFamily: "var(--font-mono)", fontSize: "9px", color: "var(--teal)", textTransform: "uppercase", letterSpacing: "0.2em", marginBottom: "5px" }}>// Quote Detail Level</p>
-                <p style={{ fontSize: "13px", fontWeight: 500, color: "var(--text)", marginBottom: "2px" }}>Itemised estimate</p>
-                <p style={{ fontSize: "12px", color: "var(--text-muted)", lineHeight: 1.5 }}>
-                  {showDetailedLineItems ? "Quote shows every part line by line, grouped by category" : "Quote shows Primary Equipment + Parts & Consumables totals"}
-                </p>
-              </div>
-              <button onClick={() => { const v = !showDetailedLineItems; setShowDetailedLineItems(v); saveEstimateOverride(job.id, { showDetailedLineItems: v }); }}
-                style={{ width: "44px", height: "24px", borderRadius: "12px", background: showDetailedLineItems ? "var(--orange)" : "#3D6480", border: "none", cursor: "pointer", position: "relative", flexShrink: 0, transition: "background 0.2s", marginLeft: "20px" }}>
-                <span style={{ position: "absolute", top: "3px", left: showDetailedLineItems ? "23px" : "3px", width: "18px", height: "18px", borderRadius: "50%", background: "white", transition: "left 0.2s", display: "block" }} />
-              </button>
-            </div>
-
             {/* Customer */}
             <p style={{ fontFamily: "var(--font-mono)", fontSize: "9px", color: "var(--teal)", textTransform: "uppercase", letterSpacing: "0.2em", marginBottom: "8px" }}>// Customer</p>
             <h2 style={{ fontFamily: "var(--font-bebas)", fontSize: "28px", letterSpacing: "0.04em", marginBottom: "16px", color: "var(--text)" }}>Customer Details</h2>
@@ -510,7 +495,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
               {/* Primary materials */}
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "11px 20px", borderBottom: "1px solid var(--border-light)" }}>
                 <span style={{ fontSize: "13.5px", color: "var(--text-secondary)" }}>Primary materials</span>
-                <span style={{ fontSize: "13.5px", minWidth: "110px", textAlign: "right", fontFamily: "var(--font-mono)", color: "var(--text-muted)" }}>${primaryCost.toFixed(2)} CAD</span>
+                <span style={{ fontSize: "13.5px", minWidth: "110px", textAlign: "right", fontFamily: "var(--font-mono)", color: "var(--text)" }}>${primaryCost.toFixed(2)} CAD</span>
               </div>
 
               {/* Primary equipment markup */}
@@ -528,7 +513,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
               {/* Parts, fittings & consumables */}
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "11px 20px", borderBottom: "1px solid var(--border-light)" }}>
                 <span style={{ fontSize: "13.5px", color: "var(--text-secondary)" }}>Parts, fittings &amp; consumables</span>
-                <span style={{ fontSize: "13.5px", minWidth: "110px", textAlign: "right", fontFamily: "var(--font-mono)", color: "var(--text-muted)" }}>${otherCost.toFixed(2)} CAD</span>
+                <span style={{ fontSize: "13.5px", minWidth: "110px", textAlign: "right", fontFamily: "var(--font-mono)", color: "var(--text)" }}>${otherCost.toFixed(2)} CAD</span>
               </div>
 
               {/* Parts & consumables markup */}
@@ -621,15 +606,40 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
                 <span style={{ fontSize: "13.5px", fontWeight: 600, minWidth: "110px", textAlign: "right", fontFamily: "var(--font-mono)", color: "var(--text)" }}>${totalLabour.toFixed(2)} CAD</span>
               </div>
 
-              {/* Additional items reference — editing happens in card below */}
-              {customItemsTotal > 0 && (
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "11px 20px", borderBottom: "1px solid var(--border-light)", background: "rgba(26,191,191,0.03)" }}>
-                  <span style={{ fontSize: "13.5px", color: "var(--text-secondary)" }}>
-                    Additional items <span style={{ fontFamily: "var(--font-mono)", fontSize: "11px", color: "var(--teal)" }}>({customLineItems.length})</span>
-                  </span>
-                  <span style={{ fontSize: "13.5px", minWidth: "110px", textAlign: "right", fontFamily: "var(--font-mono)", color: "var(--text)" }}>${customItemsTotal.toFixed(2)} CAD</span>
+              {/* ── Extra Charges ── */}
+              <div style={{ padding: "7px 20px", background: "rgba(242,106,27,0.06)", borderBottom: "1px solid rgba(242,106,27,0.18)", borderTop: "1px solid rgba(242,106,27,0.18)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span style={{ fontSize: "10px", fontFamily: "var(--font-mono)", color: "var(--orange)", letterSpacing: "0.12em", textTransform: "uppercase" }}>Extra Charges</span>
+                <button onClick={addCustomItem} style={{ fontSize: "11px", color: "var(--orange)", background: "none", border: "1px solid rgba(242,106,27,0.4)", borderRadius: "4px", padding: "3px 10px", cursor: "pointer", fontFamily: "var(--font-mono)" }}>+ Add item</button>
+              </div>
+
+              {customLineItems.length === 0 && (
+                <div style={{ padding: "11px 20px", borderBottom: "1px solid var(--border-light)", background: "rgba(242,106,27,0.02)" }}>
+                  <span style={{ fontSize: "12px", color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>Permits · Disposal · Travel · Subcontractors</span>
                 </div>
               )}
+
+              {customLineItems.map((item, idx) => (
+                <div key={item.id} style={{ display: "flex", alignItems: "center", gap: "8px", padding: "10px 20px", borderBottom: "1px solid var(--border-light)", flexWrap: "wrap", background: "rgba(242,106,27,0.02)" }}>
+                  <input
+                    value={item.description}
+                    onChange={e => updateCustomItem(idx, "description", e.target.value)}
+                    placeholder="e.g. Permit fee, Disposal"
+                    style={{ ...inputStyle, flex: "1 1 140px", minWidth: "120px", padding: "5px 10px" }}
+                  />
+                  <div style={{ display: "flex", alignItems: "center", gap: "6px", flexShrink: 0 }}>
+                    <input type="number" min="1" value={item.qty} onChange={e => updateCustomItem(idx, "qty", Math.max(1, +e.target.value))}
+                      style={{ ...inputStyle, width: "48px", padding: "5px 6px", textAlign: "center" }} />
+                    <span style={{ fontSize: "11px", color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>×</span>
+                    <div style={{ display: "flex", alignItems: "center", border: "1px solid var(--border)", borderRadius: "6px", overflow: "hidden" }}>
+                      <span style={prefixStyle}>$</span>
+                      <input type="number" min="0" step="0.01" value={item.unitPrice} onChange={e => updateCustomItem(idx, "unitPrice", +e.target.value)}
+                        style={{ ...inputStyle, width: "72px", padding: "5px 8px", border: "none", borderRadius: 0, textAlign: "right" }} />
+                    </div>
+                    <span style={{ fontSize: "13px", minWidth: "80px", textAlign: "right", fontFamily: "var(--font-mono)", color: "var(--text)" }}>${(item.qty * item.unitPrice).toFixed(2)}</span>
+                    <button onClick={() => removeCustomItem(idx)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", fontSize: "18px", lineHeight: 1, padding: "0 2px", flexShrink: 0 }}>×</button>
+                  </div>
+                </div>
+              ))}
 
               {/* Discount */}
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "11px 20px", borderBottom: "1px solid var(--border)", opacity: discountEnabled ? 1 : 0.6 }}>
@@ -688,52 +698,18 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
               </div>
             </div>
 
-            {/* ── Additional Items (standalone) ── */}
-            <div style={{ marginTop: "28px" }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
-                <div>
-                  <p style={{ fontFamily: "var(--font-mono)", fontSize: "9px", color: "var(--teal)", textTransform: "uppercase", letterSpacing: "0.2em", marginBottom: "4px" }}>// Additional Items</p>
-                  <h2 style={{ fontFamily: "var(--font-bebas)", fontSize: "22px", letterSpacing: "0.04em", color: "var(--text)", lineHeight: 1 }}>Extra Charges</h2>
-                </div>
-                <button onClick={addCustomItem} style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "8px 14px", background: "rgba(26,191,191,0.1)", border: "1px solid rgba(26,191,191,0.35)", borderRadius: "7px", color: "var(--teal)", fontSize: "13px", cursor: "pointer", fontWeight: 500 }}>
-                  + Add item
-                </button>
+            {/* ── Itemised estimate toggle ── */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 16px", border: "1px solid var(--border)", borderRadius: "8px", background: "var(--bg)", marginTop: "16px" }}>
+              <div>
+                <p style={{ fontSize: "13px", fontWeight: 500, color: "var(--text)", marginBottom: "2px" }}>Itemised estimate</p>
+                <p style={{ fontSize: "12px", color: "var(--text-muted)", lineHeight: 1.5 }}>
+                  {showDetailedLineItems ? "Quote shows every part line by line, grouped by category" : "Quote shows Primary Equipment + Parts & Consumables totals"}
+                </p>
               </div>
-              {customLineItems.length === 0 ? (
-                <div style={{ padding: "24px 20px", border: "1px dashed rgba(26,191,191,0.25)", borderRadius: "8px", textAlign: "center" }}>
-                  <p style={{ fontSize: "13px", color: "var(--text-muted)", marginBottom: "4px" }}>No additional items yet</p>
-                  <p style={{ fontSize: "12px", color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>Permits · Disposal fees · Travel · Subcontractors</p>
-                </div>
-              ) : (
-                <div style={{ border: "1px solid rgba(26,191,191,0.2)", borderRadius: "8px", overflow: "hidden" }}>
-                  {customLineItems.map((item, idx) => (
-                    <div key={item.id} style={{ display: "flex", alignItems: "center", gap: "8px", padding: "10px 16px", borderBottom: idx < customLineItems.length - 1 ? "1px solid var(--border-light)" : "none", flexWrap: "wrap", background: "rgba(26,191,191,0.02)" }}>
-                      <input
-                        value={item.description}
-                        onChange={e => updateCustomItem(idx, "description", e.target.value)}
-                        placeholder="e.g. Permit fee, Disposal"
-                        style={{ ...inputStyle, flex: "1 1 140px", minWidth: "120px", padding: "5px 10px" }}
-                      />
-                      <div style={{ display: "flex", alignItems: "center", gap: "6px", flexShrink: 0 }}>
-                        <input type="number" min="1" value={item.qty} onChange={e => updateCustomItem(idx, "qty", Math.max(1, +e.target.value))}
-                          style={{ ...inputStyle, width: "48px", padding: "5px 6px", textAlign: "center" }} />
-                        <span style={{ fontSize: "11px", color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>×</span>
-                        <div style={{ display: "flex", alignItems: "center", border: "1px solid var(--border)", borderRadius: "6px", overflow: "hidden" }}>
-                          <span style={prefixStyle}>$</span>
-                          <input type="number" min="0" step="0.01" value={item.unitPrice} onChange={e => updateCustomItem(idx, "unitPrice", +e.target.value)}
-                            style={{ ...inputStyle, width: "72px", padding: "5px 8px", border: "none", borderRadius: 0, textAlign: "right" }} />
-                        </div>
-                        <span style={{ fontSize: "13px", minWidth: "80px", textAlign: "right", fontFamily: "var(--font-mono)", color: "var(--text)" }}>${(item.qty * item.unitPrice).toFixed(2)}</span>
-                        <button onClick={() => removeCustomItem(idx)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", fontSize: "18px", lineHeight: 1, padding: "0 2px", flexShrink: 0 }}>×</button>
-                      </div>
-                    </div>
-                  ))}
-                  <div style={{ padding: "10px 16px", background: "rgba(26,191,191,0.04)", borderTop: "1px solid rgba(26,191,191,0.15)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <button onClick={addCustomItem} style={{ fontSize: "12px", color: "var(--teal)", background: "none", border: "none", cursor: "pointer", fontFamily: "var(--font-mono)" }}>+ Add another</button>
-                    <span style={{ fontSize: "13px", fontFamily: "var(--font-mono)", fontWeight: 600, color: "var(--text)" }}>${customItemsTotal.toFixed(2)} CAD</span>
-                  </div>
-                </div>
-              )}
+              <button onClick={() => { const v = !showDetailedLineItems; setShowDetailedLineItems(v); saveEstimateOverride(job.id, { showDetailedLineItems: v }); }}
+                style={{ width: "44px", height: "24px", borderRadius: "12px", background: showDetailedLineItems ? "var(--orange)" : "#3D6480", border: "none", cursor: "pointer", position: "relative", flexShrink: 0, transition: "background 0.2s", marginLeft: "20px" }}>
+                <span style={{ position: "absolute", top: "3px", left: showDetailedLineItems ? "23px" : "3px", width: "18px", height: "18px", borderRadius: "50%", background: "white", transition: "left 0.2s", display: "block" }} />
+              </button>
             </div>
 
             {/* ── Exclusions ── */}
